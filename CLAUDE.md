@@ -19,6 +19,12 @@ It bumps `VERSION`, builds + verifies the signed APK, commits
 `release/version.json` LAST - that file is the update channel installed apps poll
 (`BuildConfig.UPDATE_MANIFEST_URL`, raw.githubusercontent.com, ~5 min CDN cache).
 
+Why GitHub and not UmAi's hub (hub.umaai.eu): the hub only answers clients holding
+the UmAi friend token, and anything baked into this public APK is public; the hub is
+also hard-wired to UmAi's file names and android channel. The client parses the same
+manifest shape (version/file/sha256/size/notes, plus `url`), so moving to a public
+hub channel later is a one-line change of UPDATE_MANIFEST_URL.
+
 **Signing key**: `%APPDATA%\Secrets\WakeOnNoti\.env` + `wakeonnoti-release.jks`
 (never in the repo). Losing it means no installed copy can ever update in place
 again - users would have to uninstall and lose their rules. Never publish a
