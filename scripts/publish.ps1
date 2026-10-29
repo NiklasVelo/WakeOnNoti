@@ -88,16 +88,24 @@ if ($NoPush) { Write-Host "== built only (-NoPush): release\WakeOnNoti.apk" -For
 # --- 1: the APK, then the GitHub release that hosts it
 Run git @("add", "VERSION", "release/WakeOnNoti.apk")
 Run git @("commit", "-q", "-m", "Release $v")
+$commit = (& git rev-parse HEAD).Trim()
 Run git @("push", "-q")
 if (-not $Notes) { $Notes = "WakeOnNoti $v" }
 $body = "$Notes`n`nInstall: download **WakeOnNoti-$v.apk** below. Already installed? The app offers this update itself - your rules and settings are kept."
 Run gh @("release", "create", "v$v", $asset, "--title", "WakeOnNoti $v", "--notes", $body, "--target", "main")
 
 # --- 2: the manifest goes live last
+# Download URLs, tried in order by the app. raw.githubusercontent.com comes first and is
+# pinned to the release commit (immutable, no CDN staleness): github.com and its release
+# assets have no IPv6 address, so on IPv6-only mobile data they do not resolve at all
+# ("Unable to resolve host github.com"), while the manifest host does. "url" is what
+# 0.1.0/0.1.1 clients read; newer ones read "urls".
+$raw = "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/$commit/release/WakeOnNoti.apk"
 $manifest = [ordered]@{
     version     = $v
     file        = "WakeOnNoti.apk"
-    url         = "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v$v/WakeOnNoti-$v.apk"
+    url         = $raw
+    urls        = @($raw, "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v$v/WakeOnNoti-$v.apk")
     sha256      = $sha
     size        = $size
     notes       = $Notes

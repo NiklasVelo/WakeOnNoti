@@ -16,8 +16,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONObject
 import java.io.File
+import android.util.Log
 import java.io.IOException
 import java.net.URL
+import java.net.UnknownHostException
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
@@ -31,7 +33,8 @@ import java.util.concurrent.Executors
  * scripts/publish.ps1 next to the APK it describes.
  */
 object Updater {
-    data class Release(val version: String, val url: String, val sha256: String, val size: Long, val notes: String)
+    /** [urls] are mirrors of the same APK, tried in order. */
+    data class Release(val version: String, val urls: List<String>, val sha256: String, val size: Long, val notes: String)
 
     sealed interface State {
         data object Idle : State
@@ -43,6 +46,7 @@ object Updater {
         data class Failed(val message: String, val release: Release?) : State
     }
 
+    private const val TAG = "Updater"
     private const val KEY_CHECKED = "updateCheckedAt"
     private const val KEY_NOTIFIED = "updateNotified"
     private const val BACKGROUND_EVERY_MS = 6 * 3600_000L
@@ -73,10 +77,16 @@ object Updater {
         val r = Http.request(manifestUrl)
         if (r.code != 200) throw IOException("update server answered HTTP ${r.code}")
         val o = JSONObject(r.body)
-        val file = o.optString("file")
+        // "urls" lists mirrors, raw.githubusercontent.com first: github.com and its release
+        // downloads have no IPv6 address, so on IPv6-only mobile data they do not even resolve
+        val urls = LinkedHashSet<String>()
+        o.optJSONArray("urls")?.let { arr -> (0 until arr.length()).forEach { urls += arr.optString(it) } }
+        urls += o.optString("url")
+        urls.remove("")
+        if (urls.isEmpty()) urls += URL(URL(BuildConfig.UPDATE_MANIFEST_URL), o.optString("file")).toString()
         return Release(
             version = o.getString("version"),
-            url = o.optString("url").ifBlank { URL(URL(BuildConfig.UPDATE_MANIFEST_URL), file).toString() },
+            urls = urls.toList(),
             sha256 = o.optString("sha256").lowercase(),
             size = o.optLong("size"),
             notes = o.optString("notes"),
@@ -117,7 +127,7 @@ object Updater {
     }
 
     fun install(c: Context) {
-        val release = when (val s = mutableState.value) {
+        val known = when (val s = mutableState.value) {
             is State.Available -> s.release
             is State.Failed -> s.release
             else -> null
@@ -129,6 +139,10 @@ object Updater {
             return
         }
         worker.execute {
+            mutableState.value = State.Downloading(known, 0)
+            // re-read the manifest: a retry must not reuse URLs that already failed, and the
+            // channel may have been fixed or moved on to a newer version since the check
+            val release = runCatching { fetch(fresh = true) }.getOrNull()?.takeIf { isNewer(it.version) } ?: known
             try {
                 val apk = download(app, release)
                 mutableState.value = State.Installing(release)
@@ -144,12 +158,30 @@ object Updater {
         EventLog.error(message)
     }
 
+    /** Tries every mirror; only when all fail does the last error reach the user. */
     private fun download(c: Context, r: Release): File {
+        var last: Exception? = null
+        for (url in r.urls) {
+            try {
+                return downloadFrom(c, r, url)
+            } catch (e: Exception) {
+                Log.w(TAG, "download from $url failed", e)
+                last = e
+            }
+        }
+        throw if (last is UnknownHostException) {
+            IOException("cannot reach the download server – check the internet connection and try again")
+        } else {
+            last ?: IOException("no download address in the update manifest")
+        }
+    }
+
+    private fun downloadFrom(c: Context, r: Release, url: String): File {
         val dir = File(c.cacheDir, "update").apply { mkdirs(); listFiles()?.forEach { it.delete() } }
         val part = File(dir, "WakeOnNoti-${r.version}.apk.part")
         val digest = MessageDigest.getInstance("SHA-256")
         mutableState.value = State.Downloading(r, 0)
-        Http.download(r.url, part) { buf, n, done, total ->
+        Http.download(url, part) { buf, n, done, total ->
             digest.update(buf, 0, n)
             val size = if (total > 0) total else r.size
             if (size > 0) mutableState.value = State.Downloading(r, (done * 100 / size).toInt().coerceIn(0, 99))
