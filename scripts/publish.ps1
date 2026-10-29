@@ -50,10 +50,12 @@ $v = (Get-Content VERSION -Raw).Trim()
 if ($Version) { $v = $Version }
 elseif ($Bump -ne "none") {
     $p = $v.Split(".") | ForEach-Object { [int]$_ }
+    # parentheses required: in PowerShell "," binds tighter than "+", so
+    # `$p[0], $p[1], $p[2] + 1` appends a fourth part (0.1.0.1) instead of adding
     switch ($Bump) {
-        "major" { $p = @($p[0] + 1, 0, 0) }
-        "minor" { $p = @($p[0], $p[1] + 1, 0) }
-        "patch" { $p = @($p[0], $p[1], $p[2] + 1) }
+        "major" { $p = @(($p[0] + 1), 0, 0) }
+        "minor" { $p = @($p[0], ($p[1] + 1), 0) }
+        "patch" { $p = @($p[0], $p[1], ($p[2] + 1)) }
     }
     $v = $p -join "."
 }
