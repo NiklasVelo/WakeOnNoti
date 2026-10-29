@@ -21,7 +21,8 @@ powershell -File scripts\publish.ps1 -Bump patch -Notes "what changed"
 It bumps `VERSION`, builds + verifies the signed APK, commits
 `release/WakeOnNoti.apk`, creates GitHub release `vX.Y.Z`, then writes and pushes
 `release/version.json` LAST - that file is the update channel installed apps poll
-(`BuildConfig.UPDATE_MANIFEST_URL`, raw.githubusercontent.com, ~5 min CDN cache).
+(`BuildConfig.UPDATE_MANIFEST_URL`, raw.githubusercontent.com, ~5 min CDN cache that
+ignores query strings - a fresh release can take that long to be offered).
 
 Why GitHub and not UmAi's hub (hub.umaai.eu): the hub only answers clients holding
 the UmAi friend token, and anything baked into this public APK is public; the hub is

@@ -71,7 +71,11 @@ object Updater {
     private fun parse(v: String): List<Int>? =
         v.trim().removePrefix("v").split('.').map { it.toIntOrNull() ?: return null }
 
-    /** Blocking. [fresh] bypasses the CDN cache in front of raw.githubusercontent.com (~5 min). */
+    /**
+     * Blocking. The CDN in front of raw.githubusercontent.com caches for up to 5 minutes and
+     * ignores query strings (tested: every `?t=` variant was a cache HIT), so [fresh] does not
+     * actually bypass it - a new release can take that long to show up. Kept as a harmless hint.
+     */
     private fun fetch(fresh: Boolean): Release {
         val manifestUrl = BuildConfig.UPDATE_MANIFEST_URL + if (fresh) "?t=${System.currentTimeMillis()}" else ""
         val r = Http.request(manifestUrl)
