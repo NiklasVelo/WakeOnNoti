@@ -364,10 +364,10 @@ private fun WebhookFields(a: RuleAction.Webhook, rule: Rule, onChange: (RuleActi
 @Composable
 private fun AutoAiFields(a: RuleAction.AutoAi, onChange: (RuleAction) -> Unit) {
     OutlinedTextField(
-        a.ask, { onChange(a.copy(ask = it)) }, label = { Text("Ask Aris (optional)") },
+        a.ask, { onChange(a.copy(ask = it)) }, label = { Text("Instruction for AutoAI (optional)") },
         placeholder = { Text("e.g. Ping me on Discord") },
         supportingText = {
-            Text("Empty: Aris is just told about it. Filled: Aris acts on it right away, with this instruction.")
+            Text("Empty: AutoAI is just told about it. Filled: AutoAI acts on it right away, with this instruction.")
         },
         minLines = 2, modifier = Modifier.fillMaxWidth(),
     )

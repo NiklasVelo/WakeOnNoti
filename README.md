@@ -31,7 +31,8 @@ with an **Install update** button, and your rules and settings are kept.
     the lock screen, and stops by itself after N minutes if you want
   - **Webhook** – GET/POST/PUT to any URL with your own headers and body;
     `{rule} {app} {package} {title} {text} {time}` are filled in
-  - **AutoAI** – hands the notification to AutoAI, optionally with an instruction
+  - **AutoAI** – hands the notification to [AutoAI](#autoai) (an AI advisor app, closed beta),
+    optionally with an instruction
 - **Log** – every incoming notification (kept only on the phone) and every rule that
   fired. Tap a notification to build a rule from it.
 - **Backup** – export / import all rules and settings as a JSON file.
@@ -102,12 +103,15 @@ the URL are URL-encoded. A failed call is retried once after 5 seconds; the resu
 
 ## AutoAI
 
-AutoAI ("Aris") is the author's personal desktop assistant (a separate, private project).
-WakeOnNoti can forward notifications to it through AutoAI's server relay (the PC needs no
-open port): *Settings → AutoAI* takes the server URL and a device token, and forwards
+AutoAI is an AI advisor app that is still in **closed beta**, so there is no open access to
+it yet – if you don't have an AutoAI setup, simply ignore this part; everything else works
+without it.
+
+With access, WakeOnNoti can forward notifications to AutoAI through its server relay (the PC
+needs no open port): *Settings → AutoAI* takes the server URL and a device token, and forwards
 **rule matches** or **everything** (ongoing notifications such as music players excepted,
 plus any apps you exclude). A rule's *Tell AutoAI* action can add an instruction, e.g.
-"ping me on Discord", which Aris then carries out. Messages go to
+"ping me on Discord", which AutoAI then carries out. Messages go to
 `POST {server}/api/relay/send` as `kind: "notification"` with a JSON body
 `{app, package, title, text, time, rule?, ask?}`.
 

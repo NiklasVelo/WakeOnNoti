@@ -64,7 +64,7 @@ object RuleEngine {
         matched.forEach { fire(context, it, e) }
 
         if (!settings.autoAiReady) return
-        // a rule with its own AutoAI action already told Aris about this one
+        // a rule with its own AutoAI action already told AutoAI about this one
         val told = matched.any { r -> r.actions.any { it is RuleAction.AutoAi } }
         when (settings.forward) {
             ForwardMode.OFF -> Unit

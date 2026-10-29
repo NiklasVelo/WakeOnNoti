@@ -105,7 +105,7 @@ sealed class RuleAction {
         }
     }
 
-    /** Hands the notification to AutoAI; a non-empty [ask] makes Aris act on it right away. */
+    /** Hands the notification to AutoAI; a non-empty [ask] makes it act on it right away. */
     data class AutoAi(val ask: String = "") : RuleAction() {
         override fun toJson(): JSONObject = JSONObject().put("type", "autoai").put("ask", ask)
     }

@@ -5,6 +5,10 @@ fires rules (alarm / webhook / AutoAI). Public repo `NiklasVelo/WakeOnNoti`.
 Owner: Niklas. Sibling projects in `D:\Dev`: UmAi (whose hub/update flow this
 updater copies), AutoAI (receives forwarded notifications via its relay).
 
+**Naming AutoAI here:** call it "AutoAI" and describe it as an AI advisor app that is
+still in closed beta (no open access yet). Never use the name of the owner's own agent
+instance: AutoAI lets every user name their agent, so the universal name is AutoAI.
+
 ## Release workflow - the repo must always carry the newest APK
 
 After any change that should reach the phone:

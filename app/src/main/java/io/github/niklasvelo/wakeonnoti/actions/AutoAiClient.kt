@@ -7,14 +7,15 @@ import org.json.JSONObject
 import java.util.concurrent.Executors
 
 /**
- * Hands notifications to AutoAI ("Aris") through its server's device relay -
- * the same path AutoAI's own phone app uses, so the PC needs no open port:
- * its relay thread long-polls the server and turns kind "notification" into a
- * notification stimulus. A message with "ask" set is a request Aris acts on;
- * without it, Aris just knows (batched, it decides whether to say anything).
+ * Hands notifications to AutoAI (an AI advisor app, closed beta) through its
+ * server's device relay - the same path AutoAI's own phone app uses, so the PC
+ * needs no open port: its relay thread long-polls the server and turns kind
+ * "notification" into a notification stimulus. A message with "ask" set is a
+ * request the assistant acts on; without it, the assistant just knows (batched,
+ * it decides whether to say anything).
  *
  * Only the X-AutoAI-Name header is sent, no X-AutoAI-Device: WakeOnNoti then
- * never shows up in AutoAI's device list as something Aris could send to.
+ * never shows up in AutoAI's device list as something it could send to.
  */
 object AutoAiClient {
     private val pool = Executors.newSingleThreadExecutor()  // keeps notifications in order

@@ -176,8 +176,9 @@ private fun AutoAiSection() {
     var showToken by remember { mutableStateOf(false) }
 
     Text(
-        "Sends notifications to AutoAI (Aris) through its server's relay, like AutoAI's own phone app. " +
-            "Rules can also tell Aris directly with a “Tell AutoAI” action.",
+        "AutoAI is an AI advisor app, currently in closed beta – without access, just leave this empty. " +
+            "With access, notifications reach AutoAI through its server's relay, like AutoAI's own phone app, " +
+            "and rules can also tell it directly with a “Tell AutoAI” action.",
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     OutlinedTextField(
@@ -204,9 +205,9 @@ private fun AutoAiSection() {
     }
     Text(
         when (s.forward) {
-            ForwardMode.OFF -> "Only rules with a “Tell AutoAI” action reach Aris."
-            ForwardMode.MATCHES -> "Every notification that fires a rule also reaches Aris."
-            ForwardMode.ALL -> "Every notification reaches Aris (ongoing ones like music players excepted)."
+            ForwardMode.OFF -> "Only rules with a “Tell AutoAI” action reach AutoAI."
+            ForwardMode.MATCHES -> "Every notification that fires a rule also reaches AutoAI."
+            ForwardMode.ALL -> "Every notification reaches AutoAI (ongoing ones like music players excepted)."
         },
         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
