@@ -99,6 +99,12 @@ config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
   accessibility) + install-source-based, NOT signing-key reputation - UmAi passes only
   because it declares none of those. Signing with UmAi's key would not help. Ways in:
   `adb install`, or Play Protect scanning off for the install. README "Installing".
+- **github.com has no IPv6 address** (nor do its release-asset hosts); raw.githubusercontent.com
+  does. On the owner's phone (IPv6-only mobile data) the update check worked and the
+  download failed with "Unable to resolve host github.com". Downloads therefore come from a
+  commit-pinned raw URL first, with the release asset as fallback (`urls` in version.json).
+  ai.umaai.eu has no AAAA record either - AutoAI forwarding can fail on that network the
+  same way until the VPS gets one.
 - **Group summaries are skipped** - they repeat their children.
 - **Compose text needs a Surface.** AlarmActivity drew a bare Column with a
   background, and all text came out black on black (LocalContentColor default).
