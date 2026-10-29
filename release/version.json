@@ -1,13 +1,13 @@
 {
-    "version":  "0.1.2",
+    "version":  "0.1.3",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/1bdfdadf30d1f7fdeb018998731cd3dbb1f928c4/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/b8b3247b6e687b9e74f7f6ca0a9fd675a3152268/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/1bdfdadf30d1f7fdeb018998731cd3dbb1f928c4/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.1.2/WakeOnNoti-0.1.2.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/b8b3247b6e687b9e74f7f6ca0a9fd675a3152268/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.1.3/WakeOnNoti-0.1.3.apk"
              ],
-    "sha256":  "ce2edd2b74700e569c067a72ff4d1c47d06686e8666336e4402f51c9796dad22",
-    "size":  1233759,
-    "notes":  "Updates now download from raw.githubusercontent.com (reachable over IPv6-only mobile data, unlike github.com), with the GitHub release as fallback; Retry re-reads the update info.",
-    "released_at":  "2026-10-29T17:10:48Z"
+    "sha256":  "c6d8532aeccce202d724f1b04dd424410ed6c37fbd1172447ddba5d465c8699c",
+    "size":  1250143,
+    "notes":  "Set each alarm\u0027s volume precisely (1-100 %, with a preview that follows the slider), or let it use the phone\u0027s alarm volume. Your volume setting is restored after the alarm.",
+    "released_at":  "2026-10-29T19:01:08Z"
 }
