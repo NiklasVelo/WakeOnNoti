@@ -37,7 +37,7 @@ every later message in the same chat.
 
 ## Setup
 
-1. Install the APK. Your browser or file manager asks to allow installing apps – allow it.
+1. Install the APK – see [Installing](#installing) if Google Play Protect blocks it.
 2. Open WakeOnNoti. A red card lists what still needs permission; each item has a
    button that takes you to the right setting:
    - **Notification access** – required. If the switch is greyed out (Android 13+ does this
@@ -48,6 +48,25 @@ every later message in the same chat.
      Samsung, Xiaomi, Huawei, OnePlus & co., which otherwise kill background apps.
    - **Full-screen alarms** – so the alarm can show over the lock screen.
 3. Tap **New rule** (or *Start from an example*), then **Test this rule now**.
+
+### Installing
+
+On many phones Google Play Protect refuses the install with *"This app can request access to
+sensitive data. This can increase the risk of identity theft or financial fraud."* That is
+Play Protect's **enhanced fraud protection**: it blocks every app that is downloaded through a
+browser, messenger or file manager *and* wants notification access (or SMS / accessibility),
+because banking malware uses that to read one-time codes. It looks at the permission, not at
+who made the app – reading notifications is exactly what WakeOnNoti is for, so it is affected
+no matter how it is signed. Two ways around it:
+
+- **From a PC with adb** (recommended – also avoids the "restricted settings" step below):
+  turn on *Developer options → USB debugging*, connect the phone, then
+  `adb install WakeOnNoti.apk`.
+- **Without a PC:** Play Store → profile picture → *Play Protect* → ⚙ → turn off
+  *Scan apps with Play Protect*, install the APK, then turn scanning back on.
+
+Updates then come through the app's own *Install update* button (should Play Protect object
+there as well, the same two ways work).
 
 ### If alarms don't fire
 

@@ -67,6 +67,12 @@ config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
   (and many apps) refresh it on every in-place update, so an identical re-post
   rang again. Identity is key + title + text (+ newest message time for chats);
   `onNotificationRemoved` forgets the key so a re-alert after dismissal fires.
+- **Play Protect hard-blocks browser/file-manager installs of this app** ("kann Zugriff
+  auf sensible Daten anfordern ... Identitätsdiebstahl und Finanzbetrug", 2026-10-29).
+  That is *enhanced fraud protection*: permission-based (notification listener, SMS,
+  accessibility) + install-source-based, NOT signing-key reputation - UmAi passes only
+  because it declares none of those. Signing with UmAi's key would not help. Ways in:
+  `adb install`, or Play Protect scanning off for the install. README "Installing".
 - **Group summaries are skipped** - they repeat their children.
 - **Compose text needs a Surface.** AlarmActivity drew a bare Column with a
   background, and all text came out black on black (LocalContentColor default).
