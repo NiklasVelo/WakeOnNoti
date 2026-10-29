@@ -12,6 +12,11 @@ that and repairs it.
 Android 8.0 or newer. Once installed, the app updates itself: it offers new versions
 with an **Install update** button, and your rules and settings are kept.
 
+> **Expect Google Play Protect to block the install.** It blocks every app from outside
+> the Play Store that reads notifications – which is what WakeOnNoti does. Turning off
+> Play Protect scanning for the moment of the install gets around it:
+> [how to install](#installing). A Play Store release is planned to make this go away.
+
 ## What it does
 
 - **Rules**, as many as you like, each with its own outcome:
@@ -35,9 +40,32 @@ For chat apps only the *newest* message is matched, and a notification that is m
 updated in place (same content) does not fire again – so one "wake up" rings once, not on
 every later message in the same chat.
 
+## Installing
+
+Google Play Protect will most likely refuse the APK with
+*"This app can request access to sensitive data. This can increase the risk of identity
+theft or financial fraud."* (German: *„Diese App kann Zugriff auf sensible Daten anfordern.
+Dadurch kann das Risiko für Identitätsdiebstahl und Finanzbetrug steigen."*)
+
+That is Play Protect's **enhanced fraud protection**. It blocks every app that is downloaded
+through a browser, messenger or file manager *and* wants notification access (or SMS or
+accessibility), because banking malware uses those to read one-time codes. It goes by the
+permission, not by who made the app, and there is no "install anyway" button. Reading
+notifications is the whole point of WakeOnNoti, so it is affected however it is built.
+Two ways around it:
+
+- **On the phone:** Play Store → profile picture → *Play Protect* → ⚙ → turn off
+  *Scan apps with Play Protect*. Install the APK, then **turn scanning back on**.
+- **From a PC with adb:** turn on *Developer options → USB debugging*, connect the phone,
+  then run `adb install WakeOnNoti.apk`. This also skips the "restricted settings" step
+  under Setup.
+
+You only do this once: later versions arrive through the app's own *Install update*
+button (if Play Protect objects there as well, the same two ways work).
+
 ## Setup
 
-1. Install the APK – see [Installing](#installing) if Google Play Protect blocks it.
+1. Install the APK as described above.
 2. Open WakeOnNoti. A red card lists what still needs permission; each item has a
    button that takes you to the right setting:
    - **Notification access** – required. If the switch is greyed out (Android 13+ does this
@@ -48,25 +76,6 @@ every later message in the same chat.
      Samsung, Xiaomi, Huawei, OnePlus & co., which otherwise kill background apps.
    - **Full-screen alarms** – so the alarm can show over the lock screen.
 3. Tap **New rule** (or *Start from an example*), then **Test this rule now**.
-
-### Installing
-
-On many phones Google Play Protect refuses the install with *"This app can request access to
-sensitive data. This can increase the risk of identity theft or financial fraud."* That is
-Play Protect's **enhanced fraud protection**: it blocks every app that is downloaded through a
-browser, messenger or file manager *and* wants notification access (or SMS / accessibility),
-because banking malware uses that to read one-time codes. It looks at the permission, not at
-who made the app – reading notifications is exactly what WakeOnNoti is for, so it is affected
-no matter how it is signed. Two ways around it:
-
-- **From a PC with adb** (recommended – also avoids the "restricted settings" step below):
-  turn on *Developer options → USB debugging*, connect the phone, then
-  `adb install WakeOnNoti.apk`.
-- **Without a PC:** Play Store → profile picture → *Play Protect* → ⚙ → turn off
-  *Scan apps with Play Protect*, install the APK, then turn scanning back on.
-
-Updates then come through the app's own *Install update* button (should Play Protect object
-there as well, the same two ways work).
 
 ### If alarms don't fire
 
@@ -117,6 +126,11 @@ fine, but cannot update an install of the published APK (Android requires the sa
 Releases: `powershell -File scripts\publish.ps1 -Bump patch -Notes "what changed"` bumps
 `VERSION`, builds and signs the APK, commits it to `release/`, creates the GitHub release,
 and finally publishes `release/version.json` – the manifest the app's updater reads.
+
+## Roadmap
+
+- **Google Play release** – the only way to install without the Play Protect step, and the
+  easiest install for everyone. The GitHub APK stays available alongside it.
 
 ## License
 

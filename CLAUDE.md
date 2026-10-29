@@ -30,6 +30,28 @@ hub channel later is a one-line change of UPDATE_MANIFEST_URL.
 again - users would have to uninstall and lose their rules. Never publish a
 debug-signed build; the script checks the certificate (`CN=WakeOnNoti`).
 
+## Play Store release (planned, decided 2026-10-29)
+
+Goal: an install without the Play Protect block (see Hard-won details) and the easiest
+install for everyone; the GitHub APK stays. What it will take - verify each against
+the policy current at the time, these are from memory:
+
+- Play Console developer account (one-time fee, identity verification). New personal
+  accounts must run a closed test with a minimum number of testers for ~14 days first.
+- A `play` product flavor **without the self-updater and REQUEST_INSTALL_PACKAGES**:
+  Play forbids apps updating themselves outside Play. The `github` flavor keeps it.
+- **Play App Signing with the existing release key** (upload it; do not let Google
+  generate one). Then GitHub and Play builds are the same signer and a GitHub install
+  can switch to Play in place, keeping its rules. A Google-generated key would force
+  uninstall + export/import.
+- Console declarations: foreground service types (mediaPlayback, specialUse - may
+  need replacing), USE_FULL_SCREEN_INTENT (allowed for alarm apps, must be declared),
+  the battery-optimization request intent, and whether notification-listener use needs
+  a declaration.
+- Privacy policy URL and the Data safety form: notification content is processed on
+  the device; it leaves only through rules the user configures (webhook, AutoAI).
+- targetSdk must meet Play's current minimum at submission time.
+
 ## Layout (`app/src/main/java/io/github/niklasvelo/wakeonnoti/`)
 
 - `data/` - `Model.kt` (Rule, RuleAction, Settings, JSON via org.json),
