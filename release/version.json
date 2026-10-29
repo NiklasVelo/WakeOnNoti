@@ -1,0 +1,9 @@
+{
+    "version":  "0.1.0",
+    "file":  "WakeOnNoti.apk",
+    "url":  "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.1.0/WakeOnNoti-0.1.0.apk",
+    "sha256":  "da3d6c5accc92019a5e846afd8d29bd6ed1debeefa58479ddd0931f225f801cd",
+    "size":  1233759,
+    "notes":  "First release: rules with keyword/app conditions, alarm, webhook and AutoAI actions, notification log, backup, self-update.",
+    "released_at":  "2026-10-29T15:33:17Z"
+}
