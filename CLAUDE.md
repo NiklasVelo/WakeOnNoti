@@ -105,6 +105,11 @@ config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
   commit-pinned raw URL first, with the release asset as fallback (`urls` in version.json).
   ai.umaai.eu has no AAAA record either - AutoAI forwarding can fail on that network the
   same way until the VPS gets one.
+- **Alarm volume = stream at max + player gain.** STREAM_ALARM has only ~7 steps, so a
+  rule's own volume raises the stream to max (`StreamOverride`, restored on stop) and
+  sets the precise level with `MediaPlayer.setVolume` (`AlarmSound.gain`: 0.3 dB per %,
+  1 % ≈ -30 dB). Verified in `dumpsys media.audio_flinger`: 40 % plays at -18 dB.
+  A real alarm stops any editor preview first, or the two restores would fight.
 - **Group summaries are skipped** - they repeat their children.
 - **Compose text needs a Surface.** AlarmActivity drew a bare Column with a
   background, and all text came out black on black (LocalContentColor default).

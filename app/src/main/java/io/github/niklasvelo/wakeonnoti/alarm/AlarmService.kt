@@ -6,10 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
-import android.media.AudioManager
 import android.media.MediaPlayer
-import android.media.RingtoneManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -20,7 +17,6 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.provider.Settings
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -42,7 +38,8 @@ data class AlarmInfo(
     val title: String,
     val text: String,
     val soundUri: String = "",
-    val maxVolume: Boolean = true,
+    val useSystemVolume: Boolean = false,
+    val volume: Int = 100,
     val vibrate: Boolean = true,
     val autoStopMin: Int = 10,
     val at: Long = System.currentTimeMillis(),
@@ -51,12 +48,14 @@ data class AlarmInfo(
 
     fun toBundle() = bundleOf(
         "rule" to rule, "app" to app, "title" to title, "text" to text, "soundUri" to soundUri,
-        "maxVolume" to maxVolume, "vibrate" to vibrate, "autoStopMin" to autoStopMin, "at" to at,
+        "useSystemVolume" to useSystemVolume, "volume" to volume,
+        "vibrate" to vibrate, "autoStopMin" to autoStopMin, "at" to at,
     )
 
     companion object {
-        fun of(rule: Rule, e: NotiEvent, a: RuleAction.Alarm) =
-            AlarmInfo(rule.label, e.appName, e.title, e.text, a.soundUri, a.maxVolume, a.vibrate, a.autoStopMin)
+        fun of(rule: Rule, e: NotiEvent, a: RuleAction.Alarm) = AlarmInfo(
+            rule.label, e.appName, e.title, e.text, a.soundUri, a.useSystemVolume, a.volume, a.vibrate, a.autoStopMin,
+        )
 
         fun from(b: Bundle?): AlarmInfo? = b?.getString("rule")?.let {
             AlarmInfo(
@@ -65,7 +64,8 @@ data class AlarmInfo(
                 title = b.getString("title").orEmpty(),
                 text = b.getString("text").orEmpty(),
                 soundUri = b.getString("soundUri").orEmpty(),
-                maxVolume = b.getBoolean("maxVolume", true),
+                useSystemVolume = b.getBoolean("useSystemVolume", false),
+                volume = b.getInt("volume", 100),
                 vibrate = b.getBoolean("vibrate", true),
                 autoStopMin = b.getInt("autoStopMin", 10),
                 at = b.getLong("at", System.currentTimeMillis()),
@@ -83,7 +83,7 @@ class AlarmService : Service() {
     private var player: MediaPlayer? = null
     private var vibrator: Vibrator? = null
     private var wakeLock: PowerManager.WakeLock? = null
-    private var savedVolume: Int? = null
+    private var stream: StreamOverride? = null
     private val handler = Handler(Looper.getMainLooper())
     private val autoStop = Runnable { stopAlarm() }
 
@@ -139,39 +139,12 @@ class AlarmService : Service() {
     )
 
     private fun startSound(info: AlarmInfo) {
-        val audio = getSystemService(AudioManager::class.java)
-        if (info.maxVolume) {
-            savedVolume = audio.getStreamVolume(AudioManager.STREAM_ALARM)
-            runCatching { audio.setStreamVolume(AudioManager.STREAM_ALARM, audio.getStreamMaxVolume(AudioManager.STREAM_ALARM), 0) }
-        }
-        val candidates = listOfNotNull(
-            info.soundUri.takeIf { it.isNotBlank() }?.let(Uri::parse),
-            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_ALARM),
-            Settings.System.DEFAULT_ALARM_ALERT_URI,
-            RingtoneManager.getActualDefaultRingtoneUri(this, RingtoneManager.TYPE_RINGTONE),
-            RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
-        )
-        for (uri in candidates) {
-            val p = MediaPlayer()
-            try {
-                p.setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                p.setDataSource(this, uri)
-                p.isLooping = true
-                p.prepare()
-                p.start()
-                player = p
-                return
-            } catch (e: Exception) {
-                Log.w(TAG, "cannot play $uri", e)
-                p.release()
-            }
-        }
-        EventLog.error("Alarm: no playable sound found", "Pick a different sound in the rule")
+        // a preview from the rule editor would restore the stream level under the alarm
+        SoundPreview.stop()
+        if (!info.useSystemVolume) stream = StreamOverride(this).also { it.raise() }
+        val gain = if (info.useSystemVolume) 1f else AlarmSound.gain(info.volume)
+        player = AlarmSound.start(this, info.soundUri, gain)
+        if (player == null) EventLog.error("Alarm: no playable sound found", "Pick a different sound in the rule")
     }
 
     private fun startVibration() {
@@ -203,10 +176,8 @@ class AlarmService : Service() {
         player = null
         vibrator?.cancel()
         vibrator = null
-        savedVolume?.let { v ->
-            runCatching { getSystemService(AudioManager::class.java).setStreamVolume(AudioManager.STREAM_ALARM, v, 0) }
-        }
-        savedVolume = null
+        stream?.restore()
+        stream = null
         wakeLock?.takeIf { it.isHeld }?.release()
         wakeLock = null
         state.value = null

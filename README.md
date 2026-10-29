@@ -27,8 +27,10 @@ with an **Install update** button, and your rules and settings are kept.
   - **cooldown** – optional minimum time between two firings
 - **Actions** – one rule can do several:
   - **Alarm** – loops a sound on the *alarm* stream (so silent mode does not mute it),
-    vibrates, can turn the volume up all the way, shows a full-screen Stop screen over
-    the lock screen, and stops by itself after N minutes if you want
+    vibrates, shows a full-screen Stop screen over the lock screen, and stops by itself
+    after N minutes if you want. Each alarm rings at its own volume (1–100 %, with a
+    preview while you set it) or at the phone's alarm volume; your volume setting is put
+    back afterwards
   - **Webhook** – GET/POST/PUT to any URL with your own headers and body;
     `{rule} {app} {package} {title} {text} {time}` are filled in
   - **AutoAI** – hands the notification to [AutoAI](#autoai) (an AI advisor app, closed beta),

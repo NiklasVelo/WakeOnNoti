@@ -71,7 +71,10 @@ sealed class RuleAction {
     data class Alarm(
         /** "" = the phone's default alarm sound. */
         val soundUri: String = "",
-        val maxVolume: Boolean = true,
+        /** true = ring at the phone's alarm volume and ignore [volume]. */
+        val useSystemVolume: Boolean = false,
+        /** 1..100, mapped to loudness by AlarmSound.gain. */
+        val volume: Int = 100,
         val vibrate: Boolean = true,
         /** 0 = ring until stopped. */
         val autoStopMin: Int = 10,
@@ -79,7 +82,8 @@ sealed class RuleAction {
         override fun toJson(): JSONObject = JSONObject()
             .put("type", "alarm")
             .put("soundUri", soundUri)
-            .put("maxVolume", maxVolume)
+            .put("useSystemVolume", useSystemVolume)
+            .put("volume", volume)
             .put("vibrate", vibrate)
             .put("autoStopMin", autoStopMin)
     }
@@ -114,7 +118,9 @@ sealed class RuleAction {
         fun fromJson(o: JSONObject?): RuleAction? = when (o?.optString("type")) {
             "alarm" -> Alarm(
                 soundUri = o.optString("soundUri"),
-                maxVolume = o.optBoolean("maxVolume", true),
+                // up to 0.1.2 there was only "maxVolume": on = full volume, off = the phone's volume
+                useSystemVolume = o.optBoolean("useSystemVolume", !o.optBoolean("maxVolume", true)),
+                volume = o.optInt("volume", 100).coerceIn(1, 100),
                 vibrate = o.optBoolean("vibrate", true),
                 autoStopMin = o.optInt("autoStopMin", 10),
             )

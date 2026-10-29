@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -44,10 +45,13 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -57,9 +61,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import io.github.niklasvelo.wakeonnoti.actions.Webhook
+import io.github.niklasvelo.wakeonnoti.alarm.SoundPreview
 import io.github.niklasvelo.wakeonnoti.data.MatchField
 import io.github.niklasvelo.wakeonnoti.data.MatchMode
 import io.github.niklasvelo.wakeonnoti.data.Rule
@@ -69,6 +75,7 @@ import io.github.niklasvelo.wakeonnoti.engine.Matcher
 import io.github.niklasvelo.wakeonnoti.engine.NotiEvent
 import io.github.niklasvelo.wakeonnoti.engine.RuleEngine
 import io.github.niklasvelo.wakeonnoti.engine.label
+import kotlin.math.roundToInt
 
 private fun lines(text: String) = text.lines().map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -289,8 +296,12 @@ private fun AlarmFields(a: RuleAction.Alarm, onChange: (RuleAction) -> Unit) {
             onChange(a.copy(soundUri = value))
         }
     }
+    val previewing by SoundPreview.playing.collectAsState()
+    // leaving the editor (or removing this action) must not leave a preview ringing
+    DisposableEffect(Unit) { onDispose { SoundPreview.stop() } }
     Row(
         Modifier.fillMaxWidth().clickable {
+            SoundPreview.stop()
             picker.launch(
                 Intent(RingtoneManager.ACTION_RINGTONE_PICKER)
                     .putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALARM)
@@ -309,7 +320,34 @@ private fun AlarmFields(a: RuleAction.Alarm, onChange: (RuleAction) -> Unit) {
             Text(soundName(context, a.soundUri), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
         }
     }
-    SwitchRow("Full volume", "Turns the alarm volume all the way up while it rings", a.maxVolume) { onChange(a.copy(maxVolume = it)) }
+    SwitchRow(
+        "Own volume",
+        if (a.useSystemVolume) "Off – rings at the phone's alarm volume"
+        else "Rings at this volume, whatever the phone's alarm volume is set to",
+        !a.useSystemVolume,
+    ) { own ->
+        SoundPreview.stop()
+        onChange(a.copy(useSystemVolume = !own))
+    }
+    if (!a.useSystemVolume) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Slider(
+                value = a.volume.toFloat(),
+                onValueChange = { v ->
+                    val next = a.copy(volume = v.roundToInt().coerceIn(1, 100))
+                    onChange(next)
+                    SoundPreview.update(next)
+                },
+                valueRange = 1f..100f,
+                modifier = Modifier.weight(1f),
+            )
+            Text("${a.volume} %", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.End,
+                modifier = Modifier.width(64.dp))
+        }
+    }
+    TextButton(onClick = { if (previewing) SoundPreview.stop() else SoundPreview.play(context, a) }) {
+        Text(if (previewing) "Stop preview" else "Preview sound")
+    }
     SwitchRow("Vibrate", null, a.vibrate) { onChange(a.copy(vibrate = it)) }
     OutlinedTextField(
         minutes,
