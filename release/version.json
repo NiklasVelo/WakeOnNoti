@@ -1,9 +1,13 @@
 {
-    "version":  "0.1.1",
-    "file":  "WakeOnNoti.apk",
-    "url":  "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.1.1/WakeOnNoti-0.1.1.apk",
-    "sha256":  "4e2bfe05031cb8d8db4de74adf5ff8472605e2bcc8f6d6c954f19d7a0253d71d",
-    "size":  1233755,
-    "notes":  "AutoAI wording: describes AutoAI as an AI advisor app in closed beta; the AutoAI action field is now \u0027Instruction for AutoAI\u0027.",
-    "released_at":  "2026-10-29T16:45:33Z"
+    "version": "0.1.1",
+    "file": "WakeOnNoti.apk",
+    "url": "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/bb3b4998aa40f98d26d1c70dfa7d3f48e8fafbf7/release/WakeOnNoti.apk",
+    "sha256": "4e2bfe05031cb8d8db4de74adf5ff8472605e2bcc8f6d6c954f19d7a0253d71d",
+    "size": 1233755,
+    "notes": "AutoAI wording: describes AutoAI as an AI advisor app in closed beta; the AutoAI action field is now 'Instruction for AutoAI'.",
+    "released_at": "2026-10-29T16:45:33Z",
+    "urls": [
+        "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/bb3b4998aa40f98d26d1c70dfa7d3f48e8fafbf7/release/WakeOnNoti.apk",
+        "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.1.1/WakeOnNoti-0.1.1.apk"
+    ]
 }
