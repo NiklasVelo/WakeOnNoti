@@ -69,7 +69,11 @@ the policy current at the time, these are from memory:
   receiver, optional keep-alive FGS), `Notifications` (channels).
 - `alarm/` - `AlarmService` (mediaPlayback FGS, alarm stream, vibration,
   auto-stop), `AlarmActivity` (full-screen over lock screen).
-- `actions/` - `Http`, `Webhook`, `AutoAiClient`.
+- `actions/` - `Http`, `Webhook`, `AutoAiClient` (forwarding),
+  `AutoAiInbox` (AutoAI's inbox on the phone: long-polls the relay as device platform
+  `wakeonnoti`; message kinds in: `inbox`, `inbox_list`, `inbox_state`; out:
+  `inbox_resolve`, `inbox_sync`). The AutoAI side is in AutoAI's `brain/initiative.py`
+  and `devices/relay.py`.
 - `update/Updater.kt` - check, download, sha256, PackageInstaller session.
 - `ui/` - plain screen stack in `MainActivity` (no nav library).
 
@@ -117,5 +121,21 @@ config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
 - **No BOM in JSON or .env.** Windows PowerShell 5.1 `Set-Content -Encoding utf8`
   writes one; org.json then rejects version.json. publish.ps1 writes with
   `UTF8Encoding($false)`.
+- **AutoAI's inbox: measured end to end on the emulator (2026-11-01).**
+  - *Setup:* the PC end was a test instance under its own device name
+    (`autoai-e2e`), never `pc`. The server routes by name, so a test called
+    `pc` could take the live PC's messages.
+  - *Delivery:* urgent rang the alarm in 2 s, normal posted a notification,
+    and low stayed silent.
+  - *Settled on the PC:* the alarm stopped after 1 s.
+  - *Answered on the phone:* the answer arrived as the user's instruction
+    in 1 s.
+  - *Deep sleep:* forced with `dumpsys deviceidle force-idle` (battery
+    unplugged, screen off), the alarm rang in 2 s and woke the screen. That
+    needs the battery-optimization exemption; OEM battery managers may be
+    harsher than the emulator.
+- **The relay device id is created once, under a lock** (`by lazy`). The first
+  poll and the first send raced, and the phone registered twice under two ids,
+  one of which never polled.
 - **local.properties needs escaped backslashes** (`sdk.dir=D\:\\Android\\sdk`);
   an unescaped path fails with a German "Syntax für den Dateinamen" IOException.

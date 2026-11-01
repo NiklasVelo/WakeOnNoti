@@ -146,6 +146,8 @@ data class Settings(
     val forward: ForwardMode = ForwardMode.OFF,
     /** Packages never forwarded in [ForwardMode.ALL]. */
     val forwardExclude: List<String> = emptyList(),
+    /** Show AutoAI's inbox here and ring the alarm for its urgent items. */
+    val autoAiReceive: Boolean = false,
 ) {
     val autoAiReady get() = autoAiUrl.isNotBlank() && autoAiToken.isNotBlank()
 
@@ -157,6 +159,7 @@ data class Settings(
         .put("autoAiTarget", autoAiTarget)
         .put("forward", forward.name)
         .put("forwardExclude", JSONArray(forwardExclude))
+        .put("autoAiReceive", autoAiReceive)
 
     companion object {
         fun fromJson(o: JSONObject?) = if (o == null) Settings() else Settings(
@@ -167,6 +170,7 @@ data class Settings(
             autoAiTarget = o.optString("autoAiTarget", "pc").ifBlank { "pc" },
             forward = enumOr(o.optString("forward"), ForwardMode.OFF),
             forwardExclude = o.optJSONArray("forwardExclude").strings(),
+            autoAiReceive = o.optBoolean("autoAiReceive", false),
         )
     }
 }

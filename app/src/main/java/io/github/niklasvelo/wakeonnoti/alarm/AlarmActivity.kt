@@ -1,5 +1,6 @@
 package io.github.niklasvelo.wakeonnoti.alarm
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -21,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.niklasvelo.wakeonnoti.system.Notifications
 import io.github.niklasvelo.wakeonnoti.ui.AppTheme
+import io.github.niklasvelo.wakeonnoti.ui.MainActivity
 import java.text.DateFormat
 import java.util.Date
 
@@ -74,20 +77,26 @@ class AlarmActivity : ComponentActivity() {
                     if (info != null) seen.value = true
                     else if (seen.value) finish()  // stopped (here, from the notification, or by auto-stop)
                 }
-                AlarmScreen(info) { AlarmService.stop(this@AlarmActivity) }
+                AlarmScreen(info, onStop = { AlarmService.stop(this@AlarmActivity) }, onInbox = {
+                    // AutoAI rang because it needs something: stop, and show what
+                    AlarmService.stop(this@AlarmActivity)
+                    startActivity(Intent(this@AlarmActivity, MainActivity::class.java)
+                        .putExtra(MainActivity.EXTRA_SHOW_INBOX, true)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                })
             }
         }
     }
 }
 
 @Composable
-private fun AlarmScreen(info: AlarmInfo?, onStop: () -> Unit) {
+private fun AlarmScreen(info: AlarmInfo?, onStop: () -> Unit, onInbox: () -> Unit) {
     // the Surface provides the content color; a bare background left the text black on black
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { AlarmContent(info, onStop) }
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) { AlarmContent(info, onStop, onInbox) }
 }
 
 @Composable
-private fun AlarmContent(info: AlarmInfo?, onStop: () -> Unit) {
+private fun AlarmContent(info: AlarmInfo?, onStop: () -> Unit, onInbox: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
@@ -117,13 +126,24 @@ private fun AlarmContent(info: AlarmInfo?, onStop: () -> Unit) {
                 }
             }
         }
-        Button(
-            onClick = onStop,
-            modifier = Modifier.fillMaxWidth().height(88.dp),
-            shape = RoundedCornerShape(44.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-        ) {
-            Text("Stop", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (info != null && info.inboxId != 0) {
+                OutlinedButton(
+                    onClick = onInbox,
+                    modifier = Modifier.fillMaxWidth().height(64.dp),
+                    shape = RoundedCornerShape(32.dp),
+                ) {
+                    Text("Open inbox", fontSize = 20.sp)
+                }
+            }
+            Button(
+                onClick = onStop,
+                modifier = Modifier.fillMaxWidth().height(88.dp),
+                shape = RoundedCornerShape(44.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+            ) {
+                Text("Stop", fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

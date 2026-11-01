@@ -117,11 +117,25 @@ plus any apps you exclude). A rule's *Tell AutoAI* action can add an instruction
 `POST {server}/api/relay/send` as `kind: "notification"` with a JSON body
 `{app, package, title, text, time, rule?, ask?}`.
 
+**AutoAI's inbox on the phone** (optional, *Settings → AutoAI → Receive AutoAI's inbox*).
+AutoAI can work on things by itself. Whatever only you can do – approve something it drafted,
+answer a question, do something physical, go to a meeting – lands in its inbox. With this
+switched on, that inbox is also here:
+
+- **Urgent** items ring the alarm, at night too. The alarm screen has an *Open inbox* button.
+- **Normal** items arrive as a quiet notification.
+- What you tap (*Approve*, *Answer…*, *Done*) goes straight back.
+- Anything you settle at the PC disappears here, and stops the alarm if it is still ringing.
+
+The phone long-polls its own relay inbox on the same server, about every 30 seconds while
+the switch is on. For alarms in deep sleep, keep battery optimization off for WakeOnNoti.
+
 ## Privacy
 
 Nothing leaves the phone unless one of *your* rules sends it (webhook, AutoAI). The log
-and the settings live in the app's private storage. The only other network request is the
-update check against this repository.
+and the settings live in the app's private storage. The only other network requests are the
+update check against this repository and, if you switch it on, AutoAI's inbox on your own
+AutoAI server.
 
 ## Building
 

@@ -43,13 +43,15 @@ data class AlarmInfo(
     val vibrate: Boolean = true,
     val autoStopMin: Int = 10,
     val at: Long = System.currentTimeMillis(),
+    /** Set when AutoAI rang for one of its inbox items (0 = a rule rang). */
+    val inboxId: Int = 0,
 ) {
     val summary get() = listOf(app, title).filter { it.isNotBlank() }.joinToString(": ")
 
     fun toBundle() = bundleOf(
         "rule" to rule, "app" to app, "title" to title, "text" to text, "soundUri" to soundUri,
         "useSystemVolume" to useSystemVolume, "volume" to volume,
-        "vibrate" to vibrate, "autoStopMin" to autoStopMin, "at" to at,
+        "vibrate" to vibrate, "autoStopMin" to autoStopMin, "at" to at, "inboxId" to inboxId,
     )
 
     companion object {
@@ -69,6 +71,7 @@ data class AlarmInfo(
                 vibrate = b.getBoolean("vibrate", true),
                 autoStopMin = b.getInt("autoStopMin", 10),
                 at = b.getLong("at", System.currentTimeMillis()),
+                inboxId = b.getInt("inboxId", 0),
             )
         }
     }

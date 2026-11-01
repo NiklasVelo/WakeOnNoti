@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmInfo
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmService
 import io.github.niklasvelo.wakeonnoti.data.MatchField
@@ -52,9 +53,10 @@ import io.github.niklasvelo.wakeonnoti.engine.label
 import io.github.niklasvelo.wakeonnoti.system.Apps
 
 @Composable
-fun HomeScreen(onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> Unit, onLog: () -> Unit) {
+fun HomeScreen(onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> Unit, onLog: () -> Unit, onInbox: () -> Unit) {
     val config by Store.config.collectAsState()
     val ringing by AlarmService.current.collectAsState()
+    val inbox by AutoAiInbox.items.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -79,6 +81,8 @@ fun HomeScreen(onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> 
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ringing?.let { item { RingingCard(it) } }
+            // only with an AutoAI setup that receives - without it, nothing of this shows
+            if (inbox.isNotEmpty()) item { InboxCard(inbox.size, inbox.any { it.urgency == "urgent" }, onInbox) }
             item { ProblemsCard() }
             item { UpdateBanner(onOpen = onSettings) }
             if (config.rules.isEmpty()) item { EmptyState(onNew) }
@@ -99,6 +103,27 @@ private fun RingingCard(info: AlarmInfo) {
                 Text(info.summary, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Button(onClick = { AlarmService.stop(context) }) { Text("Stop") }
+        }
+    }
+}
+
+@Composable
+private fun InboxCard(count: Int, urgent: Boolean, onOpen: () -> Unit) {
+    Card(
+        onClick = onOpen,
+        colors = CardDefaults.cardColors(
+            containerColor = if (urgent) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        ),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("AutoAI needs you", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (count == 1) "1 thing in its inbox" else "$count things in its inbox",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Button(onClick = onOpen) { Text("Open") }
         }
     }
 }

@@ -11,6 +11,7 @@ import android.media.RingtoneManager
 import androidx.core.app.NotificationCompat
 import io.github.niklasvelo.wakeonnoti.BuildConfig
 import io.github.niklasvelo.wakeonnoti.R
+import io.github.niklasvelo.wakeonnoti.actions.InboxItem
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmActivity
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmInfo
 import io.github.niklasvelo.wakeonnoti.ui.MainActivity
@@ -22,6 +23,9 @@ object Notifications {
     const val CH_FALLBACK = "alarm_fallback"
     const val CH_STATUS = "status"
     const val CH_INFO = "info"
+    /** AutoAI's inbox items that are not urgent (urgent ones ring through [CH_ALARM]). */
+    const val CH_AUTOAI = "autoai_inbox"
+    private const val INBOX_BASE_ID = 1000
 
     const val ALARM_ID = 1
     const val FALLBACK_ID = 2
@@ -56,8 +60,30 @@ object Notifications {
             NotificationChannel(CH_INFO, "Updates", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "A new version is available or was installed"
             },
+            NotificationChannel(CH_AUTOAI, "AutoAI inbox", NotificationManager.IMPORTANCE_DEFAULT).apply {
+                description = "Something AutoAI needs from you (urgent items ring the alarm instead)"
+            },
         ))
     }
+
+    fun inboxItem(c: Context, item: InboxItem) {
+        val open = PendingIntent.getActivity(
+            c, 3,
+            Intent(c, MainActivity::class.java).putExtra(MainActivity.EXTRA_SHOW_INBOX, true),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        notify(c, INBOX_BASE_ID + item.id, NotificationCompat.Builder(c, CH_AUTOAI)
+            .setSmallIcon(R.drawable.ic_stat_alarm)
+            .setContentTitle("${item.from}: ${item.title}")
+            .setContentText(item.body.ifBlank { "Tap to open the inbox" })
+            .setStyle(NotificationCompat.BigTextStyle().bigText(item.body.ifBlank { item.title }.take(1000)))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .build())
+    }
+
+    fun cancelInbox(c: Context, id: Int) =
+        c.getSystemService(NotificationManager::class.java).cancel(INBOX_BASE_ID + id)
 
     private fun openApp(c: Context, update: Boolean = false) = PendingIntent.getActivity(
         c, if (update) 1 else 0,

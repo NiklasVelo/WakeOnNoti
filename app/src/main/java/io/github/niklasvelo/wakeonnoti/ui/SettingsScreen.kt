@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.niklasvelo.wakeonnoti.BuildConfig
 import io.github.niklasvelo.wakeonnoti.actions.AutoAiClient
+import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.Config
 import io.github.niklasvelo.wakeonnoti.data.ForwardMode
 import io.github.niklasvelo.wakeonnoti.data.Store
@@ -224,4 +225,31 @@ private fun AutoAiSection() {
             ) { context.toast("AutoAI: $it") }
         },
     ) { Text("Send test notification") }
+
+    if (s.autoAiReady) {
+        SwitchRow(
+            "Receive AutoAI's inbox",
+            "When AutoAI needs you – a decision, an approval, something only you can do – it shows up here, and " +
+                "urgent things ring the alarm, at night too. Checks the server about every 30 seconds while on; " +
+                "for alarms in deep sleep, keep battery optimization off for WakeOnNoti.",
+            s.autoAiReceive,
+        ) { on ->
+            Store.updateSettings { it.copy(autoAiReceive = on) }
+            AutoAiInbox.sync()
+        }
+        if (s.autoAiReceive) {
+            val contact by AutoAiInbox.lastContact.collectAsState()
+            val problem by AutoAiInbox.lastProblem.collectAsState()
+            Text(
+                when {
+                    problem != null -> "Cannot reach the server: $problem"
+                    contact > 0 -> "Connected – last contact " +
+                        java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(Date(contact))
+                    else -> "Connecting…"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (problem != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
