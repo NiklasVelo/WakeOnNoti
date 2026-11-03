@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.4",
+    "version":  "0.2.5",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7731321fbeef7e0da8e6445f353f1ed4a4f682d3/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/b16a6aac2e5fd9a46e58ff3bda11fd6f035f6416/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7731321fbeef7e0da8e6445f353f1ed4a4f682d3/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.4/WakeOnNoti-0.2.4.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/b16a6aac2e5fd9a46e58ff3bda11fd6f035f6416/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.5/WakeOnNoti-0.2.5.apk"
              ],
-    "sha256":  "0730853dc6b3560bc0dc7f43b0cc66b4c3c4e8c85a1deeb8d21d4a20ff3dffff",
-    "size":  1299379,
-    "notes":  "Inbox: Reload-Knopf und automatischer Abgleich mit AutoAI, verlorene Eintraege kommen zurueck",
-    "released_at":  "2026-11-03T13:52:15Z"
+    "sha256":  "ac3286a7fe3e21caa830a37e20be0c015042dbdae212819faca56066fabdd469",
+    "size":  1299403,
+    "notes":  "Inbox: zu jeder Antwort eine optionale Notiz an AutoAI, in der App und direkt aus der Benachrichtigung",
+    "released_at":  "2026-11-03T14:15:21Z"
 }
