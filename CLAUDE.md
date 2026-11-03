@@ -152,6 +152,13 @@ push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
 - **`hasAccess()` must ask NotificationManager** (`isNotificationListenerAccessGranted`),
   not Settings.Secure: the setting lags, and right after access was granted the doctor saw
   a connected listener with "no access" and posted a false outage notification.
+- **"Pause app activity if unused" never applies while notification access is on.**
+  `isAutoRevokeWhitelisted()` (and `PackageManagerCompat.getUnusedAppRestrictionsStatus`,
+  which is that call on 11+) only sees the user's or installer's exemption; PermissionController's
+  `HibernationPolicy` also exempts any app with an *enabled* notification listener
+  (`ExemptServicesLiveData`), and Settings then greys the switch out (One UI hides it). The old
+  check stayed red on the owner's A17 with nothing to switch (2026-11-03). Verified on the
+  emulator: access on -> switch disabled+off; access off -> switch enabled+on.
 - **Group summaries are skipped** - they repeat their children.
 - **Compose text needs a Surface.** AlarmActivity drew a bare Column with a
   background, and all text came out black on black (LocalContentColor default).
