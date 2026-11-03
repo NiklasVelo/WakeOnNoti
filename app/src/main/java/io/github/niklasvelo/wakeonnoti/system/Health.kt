@@ -1,6 +1,7 @@
 package io.github.niklasvelo.wakeonnoti.system
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.NotificationManager
 import android.content.ComponentName
 import android.content.Context
@@ -40,13 +41,25 @@ object Health {
 
     fun onDisconnected() {
         connected.value = false
-        EventLog.info("Notification listener was disconnected – asking Android to rebind")
-        Store.prefs.edit().putBoolean(KEY_WAS_CONNECTED, false).apply()
+        if (Store.prefs.getBoolean(KEY_WAS_CONNECTED, false)) {
+            EventLog.info("Notification listener was disconnected")
+            Store.prefs.edit().putBoolean(KEY_WAS_CONNECTED, false).apply()
+        }
     }
 
     private fun component(c: Context) = ComponentName(c, NotiListener::class.java)
 
-    fun hasAccess(c: Context) = NotificationManagerCompat.getEnabledListenerPackages(c).contains(c.packageName)
+    /**
+     * Asks the notification manager itself: the Settings.Secure copy that
+     * NotificationManagerCompat reads lags behind - right after access was granted the
+     * listener was already connected while the setting still said "off".
+     */
+    fun hasAccess(c: Context) =
+        if (Build.VERSION.SDK_INT >= 27) {
+            c.getSystemService(NotificationManager::class.java).isNotificationListenerAccessGranted(component(c))
+        } else {
+            NotificationManagerCompat.getEnabledListenerPackages(c).contains(c.packageName)
+        }
     fun canNotify(c: Context) = NotificationManagerCompat.from(c).areNotificationsEnabled()
     fun ignoresBatteryOptimizations(c: Context) =
         c.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(c.packageName)
@@ -54,16 +67,50 @@ object Health {
         Build.VERSION.SDK_INT < 34 || c.getSystemService(NotificationManager::class.java).canUseFullScreenIntent()
     fun canInstall(c: Context) = c.packageManager.canRequestPackageInstalls()
 
-    fun requestRebind(c: Context) {
-        runCatching { NotificationListenerService.requestRebind(component(c)) }
+    fun backgroundRestricted(c: Context) =
+        Build.VERSION.SDK_INT >= 28 && c.getSystemService(ActivityManager::class.java).isBackgroundRestricted
+
+    /** "Pause app activity if unused" stops an app - and its listener - that is never opened. */
+    fun hibernationExempt(c: Context) = Build.VERSION.SDK_INT < 30 || c.packageManager.isAutoRevokeWhitelisted
+
+    val isSamsung: Boolean get() = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+
+    /**
+     * Makes Android bind the listener afresh. Blocking (~1 s).
+     *
+     * requestRebind alone does nothing here: NotificationManagerService only acts on it
+     * for a listener that unbound itself with requestUnbind ("snoozed"), never for one
+     * the system dropped. So on Android 14+ (the static requestUnbind) we snooze first;
+     * that also cuts a binding the system still believes in. Neither call touches the
+     * notification-access list.
+     */
+    fun rebind(c: Context) {
+        val cn = component(c)
+        if (Build.VERSION.SDK_INT >= 34) {
+            runCatching { NotificationListenerService.requestUnbind(cn) }
+            Thread.sleep(1_000)
+        }
+        runCatching { NotificationListenerService.requestRebind(cn) }
     }
 
-    /** The heavy fix: Android drops a listener whose component flips off and on, then binds it fresh. */
-    fun forceRebind(c: Context) {
+    /**
+     * Makes the system re-check this package's listener bindings: flipping any component
+     * of ours sends PACKAGE_CHANGED, and NotificationManagerService answers it with
+     * rebindServices(), which binds the listener if it holds no binding at all - the
+     * state after the system's one retry for a dead binding failed (e.g. while One UI
+     * held the app asleep). A dummy component on purpose: disabling the listener itself,
+     * as earlier versions did, makes the system delete it from the notification-access
+     * list if it processes the change while the listener is off.
+     */
+    fun nudge(c: Context) {
+        val cn = ComponentName(c, RebindNudge::class.java)
         val pm = c.packageManager
-        pm.setComponentEnabledSetting(component(c), PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
-        pm.setComponentEnabledSetting(component(c), PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
-        requestRebind(c)
+        val on = pm.getComponentEnabledSetting(cn) == PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        pm.setComponentEnabledSetting(
+            cn,
+            if (on) PackageManager.COMPONENT_ENABLED_STATE_DISABLED else PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP,
+        )
     }
 
     // --- where each fix lives in system settings
@@ -94,4 +141,20 @@ object Health {
 
     fun installSettings(c: Context) =
         Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${c.packageName}"))
+
+    fun hibernationSettings(c: Context): Intent =
+        if (Build.VERSION.SDK_INT >= 30) {
+            Intent(Intent.ACTION_AUTO_REVOKE_PERMISSIONS, Uri.fromParts("package", c.packageName, null))
+        } else {
+            appDetails(c)
+        }
+
+    /** One UI's battery page, where "Never sleeping apps" lives; app info where this One UI has none. */
+    fun samsungBatterySettings(c: Context): Intent =
+        listOf(
+            "com.samsung.android.sm.battery.ui.BatteryActivity",
+            "com.samsung.android.sm.ui.battery.BatteryActivity",
+        ).map { Intent().setClassName("com.samsung.android.lool", it) }
+            .firstOrNull { it.resolveActivity(c.packageManager) != null }
+            ?: appDetails(c)
 }

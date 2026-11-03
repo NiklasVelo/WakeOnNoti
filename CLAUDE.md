@@ -64,9 +64,11 @@ the policy current at the time, these are from memory:
   `EventLog.kt` (filesDir/log.json, newest first, 200 entries).
 - `engine/` - `NotiEvent` (flattens a notification to title/text),
   `Matcher`, `RuleEngine` (dedupe, cooldown, dispatch, AutoAI forwarding).
-- `system/` - `NotiListener` (the NotificationListenerService), `Health`
-  (permission checks + fix intents + rebind), `Watchdog` (15-min job, boot
-  receiver, optional keep-alive FGS), `Notifications` (channels).
+- `system/` - `NotiListener` (the NotificationListenerService; `isLive()` is the real
+  binding check), `ListenerDoctor` (self-check every 2 min + on resume/boot/job, repair
+  ladder, outage notification, the status the UI shows), `Health` (permission checks,
+  fix intents, `rebind()`/`nudge()`), `RebindNudge` (dummy component the nudge flips),
+  `Watchdog` (15-min job, boot receiver, optional keep-alive FGS), `Notifications`.
 - `alarm/` - `AlarmService` (mediaPlayback FGS, alarm stream, vibration,
   auto-stop), `AlarmActivity` (full-screen over lock screen).
 - `actions/` - `Http`, `Webhook`, `AutoAiClient` (forwarding),
@@ -74,6 +76,10 @@ the policy current at the time, these are from memory:
   `wakeonnoti`; message kinds in: `inbox`, `inbox_list`, `inbox_state`; out:
   `inbox_resolve`, `inbox_sync`). The AutoAI side is in AutoAI's `brain/initiative.py`
   and `devices/relay.py`.
+  `AutoAiBoard` (AutoAI's board: rides the inbox's poll and sender; out `board_sync`,
+  `board_edit`; in `board_list` (in parts, any order), `board_task`, `board_ok`,
+  `board_error`; cache filesDir/autoai_board.json). Contract: AutoAI's docs/board-api.md,
+  PC side `brain/tickets.py`. UI in `ui/BoardScreen.kt` (list, task, add/edit form).
 - `update/Updater.kt` - check, download, sha256, PackageInstaller session.
 - `ui/` - plain screen stack in `MainActivity` (no nav library).
 
@@ -86,6 +92,21 @@ fake notifications with `adb shell cmd notification post -t Title tag "'text wit
 (the inner quotes matter: adb's remote shell splits arguments again).
 The debug build is `io.github.niklasvelo.wakeonnoti.debug` and debuggable, so a test
 config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
+Debug builds also carry `DebugHooks` (src/debug, never in release): `adb shell am broadcast
+-a drop_listener -n <pkg>/io.github.niklasvelo.wakeonnoti.system.DebugHooks` unbinds the
+listener, `-a nudge` runs the nudge alone. Watch `dumpsys notification` ("Live notification
+listeners", "Snoozed notification listeners") and logcat `ListenerDoctor` /
+`NotificationManagerService$NotificationListeners`.
+
+**AutoAI end to end without the real relay** (board, 2026-11-03): run AutoAI's
+`server/autoai_server.py` locally (`AUTOAI_SERVER_DATA=<tmp> AUTOAI_DEVICE_TOKEN=<test>
+AUTOAI_SERVER_BIND=127.0.0.1 AUTOAI_SERVER_PORT=18485`), plus a small harness that builds
+AutoAI's real `RelayThread`, `Board` and `Initiative` (never `.start()`ed: no agent, no API,
+no desktop actions) with `AUTOAI_DATA_DIR`, `AUTOAI_SERVER_URL` and `AUTOAI_DEVICE_TOKEN`
+set to the test values before importing autoai, and a fake hull whose `stimulus()` records
+what the assistant would be told. The emulator reaches the PC's 127.0.0.1 as `10.0.2.2`:
+push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
+`autoAiReceive=true`. Nothing touches the live instance, its memory or the real server.
 
 ## Hard-won details
 
@@ -115,6 +136,22 @@ config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
   sets the precise level with `MediaPlayer.setVolume` (`AlarmSound.gain`: 0.3 dB per %,
   1 % ≈ -30 dB). Verified in `dumpsys media.audio_flinger`: 40 % plays at -18 dB.
   A real alarm stops any editor preview first, or the two restores would fight.
+- **A lost listener is not repaired by `requestRebind()`** (owner's Galaxy A17, 2026-11-03:
+  no notifications, Repair did nothing, AutoAI inbox still worked). Read in AOSP
+  `ManagedServices`: `setComponentState` returns early unless the component is snoozed,
+  so requestRebind only undoes our own requestUnbind; after "binding died" the system
+  retries once (10 s) and then stops (`mServicesRebinding`); `registerServiceLocked` skips
+  anything it still believes bound. What works: static `requestUnbind(cn)` +
+  `requestRebind(cn)` (API 34+) - snooze, cut, bind fresh - and, for "no binding at all",
+  any PACKAGE_CHANGED of our package (`onPackagesChanged` -> `rebindServices`).
+  **Never toggle the listener component itself**: `trimApprovedListsForInvalidServices`
+  checks `getServiceInfo` without MATCH_DISABLED_COMPONENTS, so a change processed while
+  it is disabled deletes notification access. Hence `RebindNudge`. Verified on the
+  emulator; the One UI state itself is not reproducible there (stock Android restarted
+  every crash and force-stop by itself).
+- **`hasAccess()` must ask NotificationManager** (`isNotificationListenerAccessGranted`),
+  not Settings.Secure: the setting lags, and right after access was granted the doctor saw
+  a connected listener with "no access" and posted a false outage notification.
 - **Group summaries are skipped** - they repeat their children.
 - **Compose text needs a Surface.** AlarmActivity drew a bare Column with a
   background, and all text came out black on black (LocalContentColor default).

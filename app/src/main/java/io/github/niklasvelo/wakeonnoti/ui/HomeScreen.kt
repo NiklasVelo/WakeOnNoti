@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.niklasvelo.wakeonnoti.actions.AutoAiBoard
 import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmInfo
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmService
@@ -53,10 +54,14 @@ import io.github.niklasvelo.wakeonnoti.engine.label
 import io.github.niklasvelo.wakeonnoti.system.Apps
 
 @Composable
-fun HomeScreen(onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> Unit, onLog: () -> Unit, onInbox: () -> Unit) {
+fun HomeScreen(
+    onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> Unit, onLog: () -> Unit,
+    onInbox: () -> Unit, onBoard: () -> Unit,
+) {
     val config by Store.config.collectAsState()
     val ringing by AlarmService.current.collectAsState()
     val inbox by AutoAiInbox.items.collectAsState()
+    val board by AutoAiBoard.board.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -84,6 +89,7 @@ fun HomeScreen(onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> 
             // only with an AutoAI setup that receives - without it, nothing of this shows
             if (inbox.isNotEmpty()) item { InboxCard(inbox.size, inbox.any { it.urgency == "urgent" }, onInbox) }
             item { ProblemsCard() }
+            if (AutoAiBoard.available) item { BoardCard(board, onBoard) }
             item { UpdateBanner(onOpen = onSettings) }
             if (config.rules.isEmpty()) item { EmptyState(onNew) }
             items(config.rules, key = { it.id }) { rule ->

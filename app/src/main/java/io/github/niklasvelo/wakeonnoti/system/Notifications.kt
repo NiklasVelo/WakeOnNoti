@@ -25,12 +25,15 @@ object Notifications {
     const val CH_INFO = "info"
     /** AutoAI's inbox items that are not urgent (urgent ones ring through [CH_ALARM]). */
     const val CH_AUTOAI = "autoai_inbox"
+    /** The listener is gone and ListenerDoctor could not bring it back. */
+    const val CH_PROBLEMS = "problems"
     private const val INBOX_BASE_ID = 1000
 
     const val ALARM_ID = 1
     const val FALLBACK_ID = 2
     const val KEEP_ALIVE_ID = 3
     const val INFO_ID = 4
+    const val PROBLEM_ID = 5
 
     fun createChannels(c: Context) {
         val alarmAudio = AudioAttributes.Builder()
@@ -63,6 +66,9 @@ object Notifications {
             NotificationChannel(CH_AUTOAI, "AutoAI inbox", NotificationManager.IMPORTANCE_DEFAULT).apply {
                 description = "Something AutoAI needs from you (urgent items ring the alarm instead)"
             },
+            NotificationChannel(CH_PROBLEMS, "Problems", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "WakeOnNoti cannot see notifications, so no alarm would fire"
+            },
         ))
     }
 
@@ -84,6 +90,17 @@ object Notifications {
 
     fun cancelInbox(c: Context, id: Int) =
         c.getSystemService(NotificationManager::class.java).cancel(INBOX_BASE_ID + id)
+
+    /** Once per outage; ListenerDoctor cancels it when the listener is back. */
+    fun listenerDown(c: Context, noAccess: Boolean) = notify(c, PROBLEM_ID, NotificationCompat.Builder(c, CH_PROBLEMS)
+        .setSmallIcon(R.drawable.ic_stat_alarm)
+        .setContentTitle(if (noAccess) "Notification access for WakeOnNoti is off" else "WakeOnNoti can't see notifications")
+        .setContentText("No alarm can fire until this is fixed. Tap to fix it.")
+        .setContentIntent(openApp(c))
+        .setAutoCancel(true)
+        .build())
+
+    fun cancelListenerDown(c: Context) = c.getSystemService(NotificationManager::class.java).cancel(PROBLEM_ID)
 
     private fun openApp(c: Context, update: Boolean = false) = PendingIntent.getActivity(
         c, if (update) 1 else 0,

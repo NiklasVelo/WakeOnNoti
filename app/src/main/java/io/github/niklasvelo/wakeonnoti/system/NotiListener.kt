@@ -12,13 +12,16 @@ import io.github.niklasvelo.wakeonnoti.engine.RuleEngine
  * Android binds this once notification access is granted. The classic failure
  * of apps like this is the listener silently ending up unbound (process killed
  * by the OEM, a crash inside the callback, an update): from then on nothing
- * arrives. Hence: never throw out of a callback, ask for a rebind the moment we
- * are disconnected, and let [Watchdog] check again every 15 minutes.
+ * arrives. Hence: never throw out of a callback, and let [ListenerDoctor] check
+ * the binding for real and repair it - see there for why a plain requestRebind
+ * is not enough.
  */
 class NotiListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
+        instance = this
         Health.onConnected()
+        ListenerDoctor.onConnected()
         try {
             RuleEngine.seed(activeNotifications.orEmpty().map { NotiEvent.from(this, it) })
         } catch (e: Exception) {
@@ -27,8 +30,9 @@ class NotiListener : NotificationListenerService() {
     }
 
     override fun onListenerDisconnected() {
+        if (instance === this) instance = null
         Health.onDisconnected()
-        Health.requestRebind(this)
+        ListenerDoctor.onDisconnected()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -48,7 +52,25 @@ class NotiListener : NotificationListenerService() {
         RuleEngine.forget(sbn.key)
     }
 
-    private companion object {
-        const val TAG = "NotiListener"
+    companion object {
+        private const val TAG = "NotiListener"
+
+        @Volatile
+        private var instance: NotiListener? = null
+
+        /**
+         * Whether Android really delivers to us right now - not what the last callback
+         * said. The system checks the caller against its list of bound listeners on this
+         * call and throws a SecurityException when it dropped us, so a binding that died
+         * without onListenerDisconnected (OEM kills) shows up here too.
+         */
+        fun isLive(): Boolean {
+            val l = instance ?: return false
+            return try {
+                l.currentInterruptionFilter != INTERRUPTION_FILTER_UNKNOWN
+            } catch (_: RuntimeException) {  // SecurityException: "unknown notification listener"
+                false
+            }
+        }
     }
 }

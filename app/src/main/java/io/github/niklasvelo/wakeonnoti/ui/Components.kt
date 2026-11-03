@@ -6,8 +6,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.os.Build
-import android.os.Process
-import android.os.SystemClock
+import android.text.format.DateFormat
 import android.text.format.DateUtils
 import android.util.LruCache
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -31,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -69,10 +69,12 @@ import io.github.niklasvelo.wakeonnoti.BuildConfig
 import io.github.niklasvelo.wakeonnoti.data.EventLog
 import io.github.niklasvelo.wakeonnoti.system.Apps
 import io.github.niklasvelo.wakeonnoti.system.Health
+import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
 import io.github.niklasvelo.wakeonnoti.update.Updater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import java.util.Date
 
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
@@ -107,21 +109,19 @@ private class Check(val ok: Boolean, val title: String, val detail: String, val 
 private fun rememberChecks(): List<Check> {
     val context = LocalContext.current
     val tick by Health.tick.collectAsState()
-    val connected by Health.connected.collectAsState()
-    // right after the process starts Android may not have bound the listener yet
-    var settled by remember { mutableStateOf(processAgeMs() > 5000) }
-    LaunchedEffect(Unit) { if (!settled) { delay(5000); settled = true } }
+    val doctor by ListenerDoctor.status.collectAsState()
     val notifPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { Health.tick.value++ }
 
-    return remember(tick, connected, settled) {
+    return remember(tick, doctor.state, doctor.repairing, doctor.lastRepair) {
         val access = Health.hasAccess(context)
         listOf(
             Check(access, "Notification access",
                 "Off – WakeOnNoti sees nothing until you allow it. Toggle greyed out? Open App info → ⋮ → Allow restricted settings, then try again.",
                 "Allow") { context.open(Health.accessSettings(context)) },
-            Check(!access || connected || !settled, "Listener connection",
-                "Access is granted, but Android is not delivering notifications right now.",
-                "Repair") { Health.forceRebind(context); context.toast("Re-enabled the listener") },
+            // CHECKING is not a problem: Android binds the listener a moment after the process starts
+            Check(doctor.state != ListenerDoctor.State.DISCONNECTED, "Listener connection",
+                listenerProblem(context, doctor),
+                if (doctor.repairing) "Repairing…" else "Repair") { ListenerDoctor.repairNow() },
             Check(Health.canNotify(context), "Notification permission",
                 "Off – needed to show the alarm and its Stop button.", "Allow") {
                 if (Build.VERSION.SDK_INT >= 33) notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -133,28 +133,91 @@ private fun rememberChecks(): List<Check> {
             Check(Health.canFullScreen(context), "Full-screen alarms",
                 "Not allowed – the alarm cannot show over the lock screen (it still rings).",
                 "Allow") { context.open(Health.fullScreenSettings(context)) },
+            Check(!Health.backgroundRestricted(context), "Background activity",
+                "Restricted – Android stops WakeOnNoti in the background. App info → Battery → “Unrestricted”.",
+                "Fix") { context.open(Health.appDetails(context)) },
+            Check(Health.hibernationExempt(context), "Pause app activity if unused",
+                "On – WakeOnNoti works in the background and is rarely opened, so Android may pause it, " +
+                    "listener included. Turn it off: App info → “Pause app activity if unused”.",
+                "Fix") { context.open(Health.hibernationSettings(context)) },
         )
     }
 }
 
-private fun processAgeMs() =
-    if (Build.VERSION.SDK_INT >= 24) SystemClock.elapsedRealtime() - Process.getStartElapsedRealtime() else Long.MAX_VALUE
+private fun time(c: Context, at: Long) = DateFormat.getTimeFormat(c).format(Date(at))
 
+private fun listenerProblem(c: Context, s: ListenerDoctor.Status) = buildString {
+    append("Android is not delivering notifications to WakeOnNoti (since ${time(c, s.since)}).")
+    s.lastRepair?.let { append(" Last repair: $it.") }
+    append(" If Repair does not bring it back, turn notification access for WakeOnNoti off and on again")
+    append(if (Health.isSamsung) ", and add it to Samsung's Never sleeping apps (below)." else ".")
+}
+
+/** One line on what the listener is doing - the answer to "is it actually listening?". */
+@Composable
+private fun ListenerStatusText(s: ListenerDoctor.Status, modifier: Modifier = Modifier) {
+    val c = LocalContext.current
+    val last = Health.lastNotificationAt
+    val lastText = if (last == 0L) "never" else DateUtils.getRelativeTimeSpanString(last).toString()
+    val text = when (s.state) {
+        ListenerDoctor.State.CONNECTED -> "Listening since ${time(c, s.since)} · last notification $lastText"
+        ListenerDoctor.State.CHECKING -> "Checking the notification listener…"
+        ListenerDoctor.State.DISCONNECTED ->
+            "Not receiving notifications since ${time(c, s.since)}" + if (s.repairing) " – repairing…" else ""
+        ListenerDoctor.State.NO_ACCESS -> "Notification access is off"
+    } + if (s.checkedAt > 0) " · checked ${time(c, s.checkedAt)}" else ""
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier)
+}
+
+/**
+ * One UI puts apps to sleep that were not opened for a few days ("Put unused apps to
+ * sleep"), and a sleeping app's listener is unbound. Nothing tells an app whether it is
+ * on the Never-sleeping list, so this is advice, not a check.
+ */
+@Composable
+private fun SamsungTip(onError: Boolean) {
+    val context = LocalContext.current
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Info, null, modifier = Modifier.size(20.dp),
+            tint = if (onError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Samsung: keep WakeOnNoti awake", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Settings → Battery → Background usage limits → Never sleeping apps → add WakeOnNoti. " +
+                    "Otherwise One UI puts it to sleep after a few days without being opened, and the listener stops.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        OutlinedButton(onClick = { context.open(Health.samsungBatterySettings(context)) }) { Text("Open") }
+    }
+}
 fun Context.open(intent: Intent) {
     runCatching { startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         .onFailure { runCatching { startActivity(Health.appDetails(this).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
 }
 
-/** Home: only what is wrong, with a fix button each. Nothing when all is well. */
+/** Home: what is wrong, with a fix button each - or one quiet line saying it is listening. */
 @Composable
 fun ProblemsCard() {
+    val doctor by ListenerDoctor.status.collectAsState()
     val problems = rememberChecks().filter { !it.ok }
-    if (problems.isEmpty()) return
+    if (problems.isEmpty()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            ListenerStatusText(doctor)
+        }
+        return
+    }
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
         Column(Modifier.padding(16.dp)) {
             Text("Alarms may not fire", style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onErrorContainer)
             problems.forEach { CheckRow(it, onError = true) }
+            if (Health.isSamsung && doctor.state == ListenerDoctor.State.DISCONNECTED) SamsungTip(onError = true)
         }
     }
 }
@@ -162,14 +225,14 @@ fun ProblemsCard() {
 /** Settings: every check, ok or not. */
 @Composable
 fun StatusList() {
+    val doctor by ListenerDoctor.status.collectAsState()
     rememberChecks().forEach { CheckRow(it, onError = false) }
-    val last = Health.lastNotificationAt
-    Text(
-        "Last notification received: " +
-            if (last == 0L) "never" else DateUtils.getRelativeTimeSpanString(last).toString(),
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 8.dp),
-    )
+    if (Health.isSamsung) SamsungTip(onError = false)
+    ListenerStatusText(doctor, Modifier.padding(top = 8.dp))
+    doctor.lastRepair?.let {
+        Text("Last repair: $it", style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable
@@ -266,9 +329,10 @@ private val iconCache = LruCache<String, ImageBitmap>(200)
 @Composable
 fun AppIcon(pkg: String, size: Dp) {
     val context = LocalContext.current
-    val icon by produceState(iconCache.get(pkg), pkg) {
-        if (value == null) {
-            value = withContext(Dispatchers.IO) {
+    var icon by remember(pkg) { mutableStateOf(iconCache.get(pkg)) }
+    LaunchedEffect(pkg) {
+        if (icon == null) {
+            icon = withContext(Dispatchers.IO) {
                 Apps.icon(context, pkg)?.toBitmap(96, 96)?.asImageBitmap()?.also { iconCache.put(pkg, it) }
             }
         }

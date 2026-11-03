@@ -88,8 +88,17 @@ consider turning on the **keep-alive service** (a silent permanent notification 
 Android from killing the app). A *Notification* entry without a *Rule fired* line means the
 rule did not match – compare its text with your keywords.
 
-Under the hood WakeOnNoti asks Android to rebind the listener whenever it is dropped, and a
-watchdog job re-checks every 15 minutes and re-enables the listener if it is still gone.
+The home screen always says whether the listener is connected ("Listening since …"). Under
+the hood WakeOnNoti checks the connection with Android every 2 minutes, on every app start
+and from a 15-minute background job. When it is gone it reconnects it by itself, and if
+that fails you get a notification saying so. What it cannot fix from inside the app:
+
+- **Notification access** turned off – the notification and the status card tell you.
+- **Samsung**: One UI puts apps to sleep that you have not opened for a few days, and a
+  sleeping app gets no notifications. *Settings → Battery → Background usage limits →
+  Never sleeping apps → add WakeOnNoti*, and set *App info → Battery* to *Unrestricted*.
+- **Pause app activity if unused** (App info) – turn it off; WakeOnNoti is rarely opened.
+- Still nothing: turn notification access for WakeOnNoti off and on again.
 
 ## Webhook examples
 
@@ -129,6 +138,15 @@ switched on, that inbox is also here:
 
 The phone long-polls its own relay inbox on the same server, about every 30 seconds while
 the switch is on. For alarms in deep sleep, keep battery optimization off for WakeOnNoti.
+
+**AutoAI's board** (with the inbox switched on, a card on the home screen). AutoAI keeps a
+list of its tasks; here you see it, add tickets and change them:
+
+- What needs you comes first, then what is open, then what closed in the last 7 days.
+- Open a task for every field and its log. Change its state with one tap, or edit priority,
+  owner, what it waits on, the follow-up (`in 2h`, `14:00`, `morgen 09:00`, …) and add notes.
+- A ticket you add or change reaches AutoAI as your instruction. Changes made anywhere else
+  – at the PC or by AutoAI itself – show up here by themselves.
 
 ## Privacy
 

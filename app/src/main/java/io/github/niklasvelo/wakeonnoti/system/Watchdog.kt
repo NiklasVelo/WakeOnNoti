@@ -35,25 +35,15 @@ object Watchdog {
         )
     }
 
-    /** Blocking; runs on the job's worker thread. */
-    fun check(c: Context) {
-        if (!Health.hasAccess(c) || Health.connected.value) return
-        Health.requestRebind(c)
-        Thread.sleep(10_000)
-        if (Health.connected.value) {
-            EventLog.info("Watchdog: listener was not connected – rebound it")
-            return
-        }
-        EventLog.info("Watchdog: listener still not connected – re-enabling it")
-        Health.forceRebind(c)
-    }
 }
 
 class WatchdogJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         Thread {
             try {
-                Watchdog.check(applicationContext)
+                // the doctor's own 2-minute check stops when Android freezes or kills the
+                // process; this job is what wakes it again
+                ListenerDoctor.checkSoon()
                 Updater.backgroundCheck(applicationContext)
             } catch (e: Exception) {
                 Log.w("Watchdog", "check failed", e)
@@ -70,7 +60,9 @@ class WatchdogJob : JobService() {
 /** Boot and app updates both leave the listener unbound until Android gets around to it. */
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, intent: Intent) {
-        Health.requestRebind(c)
+        // App.onCreate already started the doctor; this makes sure it looks once the
+        // system had its chance to bind the listener by itself
+        ListenerDoctor.checkSoon(ListenerDoctor.GRACE_MS)
         KeepAliveService.sync(c)
         if (intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             EventLog.info("Updated to ${BuildConfig.VERSION_NAME}")
@@ -97,7 +89,7 @@ class KeepAliveService : Service() {
             this, Notifications.KEEP_ALIVE_ID, Notifications.keepAlive(this),
             if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0,
         )
-        if (!Health.connected.value) Health.requestRebind(this)
+        ListenerDoctor.checkSoon(ListenerDoctor.GRACE_MS)
         return START_STICKY
     }
 

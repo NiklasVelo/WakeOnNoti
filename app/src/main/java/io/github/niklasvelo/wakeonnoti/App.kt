@@ -1,10 +1,12 @@
 package io.github.niklasvelo.wakeonnoti
 
 import android.app.Application
+import io.github.niklasvelo.wakeonnoti.actions.AutoAiBoard
 import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.EventLog
 import io.github.niklasvelo.wakeonnoti.data.Store
 import io.github.niklasvelo.wakeonnoti.system.KeepAliveService
+import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
 import io.github.niklasvelo.wakeonnoti.system.Notifications
 import io.github.niklasvelo.wakeonnoti.system.Watchdog
 
@@ -14,9 +16,11 @@ class App : Application() {
         Store.init(this)
         EventLog.init(this)
         Notifications.createChannels(this)
+        ListenerDoctor.start(this)
         Watchdog.schedule(this)
         KeepAliveService.sync(this)
         // the process lives as long as Android keeps the listener bound, so does this
+        AutoAiBoard.init(this)  // before the inbox: its poll hands board messages over
         AutoAiInbox.init(this)
     }
 }
