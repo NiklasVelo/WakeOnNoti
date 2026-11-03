@@ -17,6 +17,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 /** One thing AutoAI needs from you: a draft to approve, a question, something to do, a note. */
@@ -90,6 +91,8 @@ object AutoAiInbox {
     private const val REFRESH_GAP_MS = 5_000L
     /** An item that came by itself this recently may be newer than a list arriving after it. */
     private const val OVERTAKE_MS = 60_000L
+    /** The longest note or answer sent back - AutoAI keeps 2000 characters of it. */
+    const val NOTE_MAX = 2000
 
     private lateinit var app: Context
     private lateinit var file: AtomicFile
@@ -289,20 +292,40 @@ object AutoAiInbox {
         }
     }
 
-    /** Settled somewhere (here, on the PC): no notification, and no alarm still ringing for it. */
+    /** Settled somewhere (here, on the PC): no notification, no alarm still ringing for it, no draft. */
     private fun settled(id: Int) {
+        drafts.remove(id)
         Notifications.cancelInbox(app, id)
         if (AlarmService.current.value?.inboxId == id) AlarmService.stop(app)
     }
 
     // ------------------------------------------------------------- answering --
-    /** [action]: approve, reject, answer (with [text]) or done. Goes back to AutoAI on its PC. */
+    /** Draft notes by item id: what was typed and not sent yet (the field kept it, the notification
+     *  shows it, a failed send put it back). Memory only - a note typed in the notification also
+     *  rides in its buttons, so a restarted process still sends what the notification showed. */
+    private val drafts = ConcurrentHashMap<Int, String>()
+
+    fun draft(id: Int): String = drafts[id].orEmpty()
+
+    fun setDraft(id: Int, text: String) {
+        if (text.isBlank()) drafts.remove(id) else drafts[id] = text.take(NOTE_MAX)
+    }
+
+    /**
+     * [action]: approve, reject, answer or done. Goes back to AutoAI on its PC, with [text]: the
+     * answer to a question, or for anything else an optional note that comes along with the
+     * choice ("go ahead, but not before 9"). Empty is fine, except as an answer.
+     */
     fun resolve(item: InboxItem, action: String, text: String = "", onResult: (String) -> Unit = {}) {
+        val note = text.trim().take(NOTE_MAX)
         settled(item.id)
         save(state.value.filterNot { it.id == item.id })
-        send("inbox_resolve", JSONObject().put("id", item.id).put("action", action).put("text", text)) { result ->
+        send("inbox_resolve", JSONObject().put("id", item.id).put("action", action).put("text", note)) { result ->
             if (result != "delivered") {
+                setDraft(item.id, note)   // what was typed is not lost with the send
                 add(item, alert = false)  // still open - put it back
+                // it had a notification, which settled() took away: back, quietly, with the reason
+                if (item.urgency == "normal") Notifications.inboxItem(app, item, note = note, problem = result)
                 EventLog.error("AutoAI inbox: could not send your answer", result)
             }
             onResult(result)

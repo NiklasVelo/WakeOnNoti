@@ -98,6 +98,11 @@
             android:name=".update.InstallReceiver"
             android:exported="false" />
 
+        <!-- the buttons (and typed notes) of AutoAI inbox notifications -->
+        <receiver
+            android:name=".system.InboxActionReceiver"
+            android:exported="false" />
+
         <!-- never receives anything: ListenerDoctor flips it to make Android re-check the listener -->
         <receiver
             android:name=".system.RebindNudge"

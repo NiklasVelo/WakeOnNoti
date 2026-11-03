@@ -134,8 +134,13 @@ answer a question, do something physical, go to a meeting – lands in its inbox
 switched on, that inbox is also here:
 
 - **Urgent** items ring the alarm, at night too. The alarm screen has an *Open inbox* button.
-- **Normal** items arrive as a quiet notification.
-- What you tap (*Approve*, *Answer…*, *Done*) goes straight back.
+- **Normal** items arrive as a quiet notification, with the answers as buttons.
+- What you tap (*Approve*, *Reject*, *Done*, an answer) goes straight back, and with it a short
+  note if you like ("go ahead, but not before 9"). Every item in the inbox has a text field
+  for it. The notification types it in place: *Add note…* for an approval, then tap the
+  answer; *Done, with note…*, *Reply…* or *Skip with note…* send it at once. A note is never
+  required, only a question needs its answer.
+- An answer that cannot be sent stays open, with the note you typed and the reason.
 - Anything you settle at the PC disappears here, and stops the alarm if it is still ringing.
 - Nothing open at the PC stays missing here: the phone also asks AutoAI for its whole open
   list – after every start and reconnect, every 15 minutes, every minute while the inbox is

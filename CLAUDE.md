@@ -68,13 +68,19 @@ the policy current at the time, these are from memory:
   binding check), `ListenerDoctor` (self-check every 2 min + on resume/boot/job, repair
   ladder, outage notification, the status the UI shows), `Health` (permission checks,
   fix intents, `rebind()`/`nudge()`), `RebindNudge` (dummy component the nudge flips),
-  `Watchdog` (15-min job, boot receiver, optional keep-alive FGS), `Notifications`.
+  `Watchdog` (15-min job, boot receiver, optional keep-alive FGS), `Notifications`,
+  `InboxActionReceiver` (the buttons of an inbox notification; a typed note arrives through
+  RemoteInput, and a note shown in the notification rides in the buttons' extras, so it
+  survives a killed process).
 - `alarm/` - `AlarmService` (mediaPlayback FGS, alarm stream, vibration,
   auto-stop), `AlarmActivity` (full-screen over lock screen).
 - `actions/` - `Http`, `Webhook`, `AutoAiClient` (forwarding),
   `AutoAiInbox` (AutoAI's inbox on the phone: long-polls the relay as device platform
   `wakeonnoti`; message kinds in: `inbox`, `inbox_list`, `inbox_state`; out:
-  `inbox_resolve`, `inbox_sync`). `inbox_sync` (answered by the whole open list) goes out
+  `inbox_resolve` = {id, action, text}, `inbox_sync`). `text` is the answer to a question,
+  or for every other kind an optional note that goes along with approve/reject/done; the
+  card has a field for it, the notification types it in place (Android sends no empty
+  reply, so plain buttons stay one tap). `inbox_sync` (answered by the whole open list) goes out
   after every start and reconnect plus once more 45 s later, every 15 min, every minute
   while the inbox is on screen, on resume and on Reload. The AutoAI side is in AutoAI's
   `brain/initiative.py` and `devices/relay.py`.

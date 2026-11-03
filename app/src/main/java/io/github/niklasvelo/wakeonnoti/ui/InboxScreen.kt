@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,7 +27,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,7 +55,6 @@ private const val NO_ANSWER_MS = 20_000L
 @Composable
 fun InboxScreen(onBack: () -> Unit) {
     val items by AutoAiInbox.items.collectAsState()
-    var answering by remember { mutableStateOf<InboxItem?>(null) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     // new items arrive by themselves; this catches one lost on the way
     LaunchedEffect(Unit) {
@@ -91,10 +88,9 @@ fun InboxScreen(onBack: () -> Unit) {
         ) {
             if (AutoAiInbox.enabled) item { SyncLine(now) }
             if (items.isEmpty()) item { EmptyInbox() }
-            items(items, key = { it.id }) { item -> InboxCard(item, onAnswer = { answering = item }) }
+            items(items, key = { it.id }) { item -> InboxCard(item) }
         }
     }
-    answering?.let { item -> AnswerDialog(item, onDismiss = { answering = null }) }
 }
 
 /** How fresh this copy is: the reload button's answer, too. */
@@ -142,14 +138,24 @@ private val KIND_LABEL = mapOf(
     "info" to "Note",
 )
 
+/**
+ * One item, with a text field for every kind: the answer to a question, for anything else a
+ * note that goes along with the button ("go ahead, but not before 9"). Empty is fine, except
+ * as an answer. What is typed is kept as a draft ([AutoAiInbox.draft]) until it is sent, and a
+ * failed send puts it back.
+ */
 @Composable
-private fun InboxCard(item: InboxItem, onAnswer: () -> Unit) {
+private fun InboxCard(item: InboxItem) {
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
-    fun act(action: String) = AutoAiInbox.resolve(item, action) { result ->
+    // not rememberSaveable: the list keeps that by key, so an item put back after a failed send
+    // came back with the field as it was before - empty - instead of the note that did not go out
+    var note by remember(item.id) { mutableStateOf(AutoAiInbox.draft(item.id)) }
+    fun act(action: String) = AutoAiInbox.resolve(item, action, note) { result ->
         if (result != "delivered") context.toast("Not sent – still in the inbox ($result)")
     }
     val urgent = item.urgency == "urgent"
+    val question = item.kind == "question"
     Card(
         onClick = { expanded = !expanded },
         colors = if (urgent) CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
@@ -170,6 +176,17 @@ private fun InboxCard(item: InboxItem, onAnswer: () -> Unit) {
                     maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
                 )
             }
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                note,
+                {
+                    note = it.take(AutoAiInbox.NOTE_MAX)
+                    AutoAiInbox.setDraft(item.id, note)
+                },
+                label = { Text(if (question) "Your answer (or why you skip it)" else "Note for ${item.from} (optional)") },
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 5,
+            )
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 when (item.kind) {
@@ -182,35 +199,13 @@ private fun InboxCard(item: InboxItem, onAnswer: () -> Unit) {
                         OutlinedButton(onClick = { act("reject") }) { Text("No") }
                     }
                     "question" -> {
-                        Button(onClick = onAnswer) { Text("Answer…") }
+                        Button(onClick = { act("answer") }, enabled = note.isNotBlank()) { Text("Send answer") }
                         OutlinedButton(onClick = { act("reject") }) { Text("Skip") }
                     }
                     "todo" -> Button(onClick = { act("done") }) { Text("Done") }
-                    else -> OutlinedButton(onClick = { act("done") }) { Text("OK") }
+                    else -> OutlinedButton(onClick = { act("done") }) { Text(if (note.isBlank()) "OK" else "Send") }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun AnswerDialog(item: InboxItem, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    var text by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(item.title) },
-        text = {
-            OutlinedTextField(text, { text = it }, label = { Text("Your answer") }, modifier = Modifier.fillMaxWidth())
-        },
-        confirmButton = {
-            TextButton(enabled = text.isNotBlank(), onClick = {
-                AutoAiInbox.resolve(item, "answer", text.trim()) { result ->
-                    if (result != "delivered") context.toast("Not sent – still in the inbox ($result)")
-                }
-                onDismiss()
-            }) { Text("Send") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
 }
