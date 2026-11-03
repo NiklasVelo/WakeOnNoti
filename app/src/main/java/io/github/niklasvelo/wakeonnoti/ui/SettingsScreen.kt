@@ -51,6 +51,7 @@ import io.github.niklasvelo.wakeonnoti.data.ForwardMode
 import io.github.niklasvelo.wakeonnoti.data.Store
 import io.github.niklasvelo.wakeonnoti.engine.NotiEvent
 import io.github.niklasvelo.wakeonnoti.system.Health
+import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
 import io.github.niklasvelo.wakeonnoti.system.KeepAliveService
 import org.json.JSONObject
 import java.text.SimpleDateFormat
@@ -108,8 +109,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                 s.logNotifications,
             ) { on -> Store.updateSettings { it.copy(logNotifications = on) } }
             OutlinedButton(onClick = {
-                Health.forceRebind(context)
-                context.toast("Re-enabled the notification listener")
+                ListenerDoctor.repairNow()
+                context.toast("Checking the notification listener…")
             }) { Text("Repair notification listener") }
 
             SectionTitle("AutoAI")

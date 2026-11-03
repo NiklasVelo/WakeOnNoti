@@ -88,8 +88,17 @@ consider turning on the **keep-alive service** (a silent permanent notification 
 Android from killing the app). A *Notification* entry without a *Rule fired* line means the
 rule did not match – compare its text with your keywords.
 
-Under the hood WakeOnNoti asks Android to rebind the listener whenever it is dropped, and a
-watchdog job re-checks every 15 minutes and re-enables the listener if it is still gone.
+The home screen always says whether the listener is connected ("Listening since …"). Under
+the hood WakeOnNoti checks the connection with Android every 2 minutes, on every app start
+and from a 15-minute background job. When it is gone it reconnects it by itself, and if
+that fails you get a notification saying so. What it cannot fix from inside the app:
+
+- **Notification access** turned off – the notification and the status card tell you.
+- **Samsung**: One UI puts apps to sleep that you have not opened for a few days, and a
+  sleeping app gets no notifications. *Settings → Battery → Background usage limits →
+  Never sleeping apps → add WakeOnNoti*, and set *App info → Battery* to *Unrestricted*.
+- **Pause app activity if unused** (App info) – turn it off; WakeOnNoti is rarely opened.
+- Still nothing: turn notification access for WakeOnNoti off and on again.
 
 ## Webhook examples
 

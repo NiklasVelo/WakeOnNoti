@@ -30,6 +30,7 @@ import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.Rule
 import io.github.niklasvelo.wakeonnoti.system.Apps
 import io.github.niklasvelo.wakeonnoti.system.Health
+import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
 import io.github.niklasvelo.wakeonnoti.update.Updater
 
 class MainActivity : ComponentActivity() {
@@ -53,7 +54,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         Health.tick.value++
-        if (Health.hasAccess(this) && !Health.connected.value) Health.requestRebind(this)
+        // the user is looking: if the listener is gone, repair now rather than after the backoff
+        ListenerDoctor.checkSoon(userPresent = true)
         Updater.check(quiet = true)
         AutoAiInbox.sync()
     }

@@ -20,6 +20,8 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- One UI's battery settings ("Never sleeping apps"), opened from the status screen -->
+        <package android:name="com.samsung.android.lool" />
     </queries>
 
     <!-- cleartext: webhooks often target LAN gear (Home Assistant, a NAS) over plain http -->
@@ -94,6 +96,12 @@
 
         <receiver
             android:name=".update.InstallReceiver"
+            android:exported="false" />
+
+        <!-- never receives anything: ListenerDoctor flips it to make Android re-check the listener -->
+        <receiver
+            android:name=".system.RebindNudge"
+            android:enabled="false"
             android:exported="false" />
     </application>
 </manifest>

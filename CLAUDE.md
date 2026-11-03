@@ -64,9 +64,11 @@ the policy current at the time, these are from memory:
   `EventLog.kt` (filesDir/log.json, newest first, 200 entries).
 - `engine/` - `NotiEvent` (flattens a notification to title/text),
   `Matcher`, `RuleEngine` (dedupe, cooldown, dispatch, AutoAI forwarding).
-- `system/` - `NotiListener` (the NotificationListenerService), `Health`
-  (permission checks + fix intents + rebind), `Watchdog` (15-min job, boot
-  receiver, optional keep-alive FGS), `Notifications` (channels).
+- `system/` - `NotiListener` (the NotificationListenerService; `isLive()` is the real
+  binding check), `ListenerDoctor` (self-check every 2 min + on resume/boot/job, repair
+  ladder, outage notification, the status the UI shows), `Health` (permission checks,
+  fix intents, `rebind()`/`nudge()`), `RebindNudge` (dummy component the nudge flips),
+  `Watchdog` (15-min job, boot receiver, optional keep-alive FGS), `Notifications`.
 - `alarm/` - `AlarmService` (mediaPlayback FGS, alarm stream, vibration,
   auto-stop), `AlarmActivity` (full-screen over lock screen).
 - `actions/` - `Http`, `Webhook`, `AutoAiClient` (forwarding),
@@ -86,6 +88,11 @@ fake notifications with `adb shell cmd notification post -t Title tag "'text wit
 (the inner quotes matter: adb's remote shell splits arguments again).
 The debug build is `io.github.niklasvelo.wakeonnoti.debug` and debuggable, so a test
 config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
+Debug builds also carry `DebugHooks` (src/debug, never in release): `adb shell am broadcast
+-a drop_listener -n <pkg>/io.github.niklasvelo.wakeonnoti.system.DebugHooks` unbinds the
+listener, `-a nudge` runs the nudge alone. Watch `dumpsys notification` ("Live notification
+listeners", "Snoozed notification listeners") and logcat `ListenerDoctor` /
+`NotificationManagerService$NotificationListeners`.
 
 ## Hard-won details
 
@@ -115,6 +122,22 @@ config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
   sets the precise level with `MediaPlayer.setVolume` (`AlarmSound.gain`: 0.3 dB per %,
   1 % ≈ -30 dB). Verified in `dumpsys media.audio_flinger`: 40 % plays at -18 dB.
   A real alarm stops any editor preview first, or the two restores would fight.
+- **A lost listener is not repaired by `requestRebind()`** (owner's Galaxy A17, 2026-11-03:
+  no notifications, Repair did nothing, AutoAI inbox still worked). Read in AOSP
+  `ManagedServices`: `setComponentState` returns early unless the component is snoozed,
+  so requestRebind only undoes our own requestUnbind; after "binding died" the system
+  retries once (10 s) and then stops (`mServicesRebinding`); `registerServiceLocked` skips
+  anything it still believes bound. What works: static `requestUnbind(cn)` +
+  `requestRebind(cn)` (API 34+) - snooze, cut, bind fresh - and, for "no binding at all",
+  any PACKAGE_CHANGED of our package (`onPackagesChanged` -> `rebindServices`).
+  **Never toggle the listener component itself**: `trimApprovedListsForInvalidServices`
+  checks `getServiceInfo` without MATCH_DISABLED_COMPONENTS, so a change processed while
+  it is disabled deletes notification access. Hence `RebindNudge`. Verified on the
+  emulator; the One UI state itself is not reproducible there (stock Android restarted
+  every crash and force-stop by itself).
+- **`hasAccess()` must ask NotificationManager** (`isNotificationListenerAccessGranted`),
+  not Settings.Secure: the setting lags, and right after access was granted the doctor saw
+  a connected listener with "no access" and posted a false outage notification.
 - **Group summaries are skipped** - they repeat their children.
 - **Compose text needs a Surface.** AlarmActivity drew a bare Column with a
   background, and all text came out black on black (LocalContentColor default).
