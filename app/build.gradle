@@ -101,3 +101,12 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
 }
+
+// BackupRulesTest reads the manifest and the backup rules as plain files. Declared as inputs, a
+// change to them alone reruns the tests; otherwise Gradle would call them up to date and skip them.
+tasks.withType(Test).configureEach {
+    inputs.file('src/main/AndroidManifest.xml')
+        .withPropertyName('manifest').withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir('src/main/res/xml')
+        .withPropertyName('xmlResources').withPathSensitivity(PathSensitivity.RELATIVE)
+}

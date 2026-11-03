@@ -161,7 +161,10 @@ object AutoAiInbox {
     }
 
     /** Created once, under a lock: the first poll and the first send used to race
-     *  and register the phone twice, under two ids - one of them never polled. */
+     *  and register the phone twice, under two ids - one of them never polled.
+     *  It belongs to this phone alone: Android's backup and the transfer to a new phone
+     *  leave Store.prefs behind (res/xml/data_extraction_rules.xml), so a phone set up
+     *  from this one's backup makes its own id instead of polling as this one. */
     private val deviceId: String by lazy {
         Store.prefs.getString(KEY_DEVICE, null) ?: UUID.randomUUID().toString().also {
             Store.prefs.edit().putString(KEY_DEVICE, it).commit()

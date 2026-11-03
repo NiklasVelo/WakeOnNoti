@@ -211,8 +211,8 @@ push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
   - `superseded: true` on a poll: a newer poll with the same device id took over, so a
     poll held for a dead connection takes nothing. Seen live, it means a second poller
     with this id; the loop pauses 5, 10, 20, 40, then 60 s, or the two would end each
-    other in a tight loop. `allowBackup` is on, so a restore onto another phone carries
-    the device id along (not verified).
+    other in a tight loop. Android's backup no longer carries the device id (see "Android
+    backup carries only config.json" below); a copy made by other means still would.
   - `full: false` on a list item: its body was cut to fit 20000 characters. The copy here
     keeps its own whole text (`InboxDelivery.fuller`). A cut body of an item never seen
     is stored and marked, and the card says it is shortened.
@@ -222,5 +222,19 @@ push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
 - **The relay device id is created once, under a lock** (`by lazy`). The first
   poll and the first send raced, and the phone registered twice under two ids,
   one of which never polled.
+- **Android backup carries only config.json** (`res/xml/data_extraction_rules.xml` for 12+,
+  `backup_rules.xml` for 6-11, both as one `<include>`; `BackupRulesTest` keeps them so).
+  shared_prefs/state.xml is this phone's own: the relay device id (two phones with one id
+  end each other's polls), `listenerHadAccess` (restored onto a new phone without access, the
+  doctor would report a lost access that the phone never had), what the inbox already announced. Log, inbox and board copies stay
+  too. Chosen over "detect a foreign id at start": Android filters by the *installed* app's
+  rules on restore too, so even a backup made by 0.2.6 or older (which holds the id) restores
+  only config.json - a start-up check could not tell such a restored id from the phone's own.
+  Verified on the emulator (2026-11-03, `bmgr` with LocalTransport, `adb root` to read
+  `/data/user/0/com.android.localtransport/files/1/_full/<pkg>`; device transfer with
+  `settings put secure backup_local_transport_parameters is_device_transfer=true`): 0.2.6's
+  backup had sp/state.xml and restored the old id; the new build backs up and restores only
+  f/config.json in both modes, also from that old backup. Copies outside Android's backup
+  (root backup apps, maybe OEM transfer tools) are not covered.
 - **local.properties needs escaped backslashes** (`sdk.dir=D\:\\Android\\sdk`);
   an unescaped path fails with a German "Syntax für den Dateinamen" IOException.

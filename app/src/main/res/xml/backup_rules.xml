@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 6 to 11: what Android's own backup and the transfer to a new phone carry along.
+    The same as data_extraction_rules.xml (Android 12+), which explains why only config.json.
+-->
+<full-backup-content>
+    <include domain="file" path="config.json" />
+</full-backup-content>

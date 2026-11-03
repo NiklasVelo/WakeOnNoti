@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 12 and newer: what Android's own backup (Google backup) and the transfer to a new
+    phone carry along. Android 6 to 11 read backup_rules.xml instead; keep the two the same
+    (BackupRulesTest checks that).
+
+    Only the rules and settings (files/config.json, the same as the app's own export). An
+    <include> makes everything else stay behind, which is the point:
+    - shared_prefs/state.xml is this phone's own state: the AutoAI relay device id (two phones
+      with one id would end each other's polls on the relay server), which inbox items were
+      already announced here, whether notification access was ever granted here (the doctor
+      reports its loss), the update check.
+    - log.json, autoai_inbox.json, autoai_board.json: this phone's history and AutoAI's copies,
+      which a new phone fetches again.
+    Android applies these rules again when it restores, so a backup made by an older version
+    (which had all of it) restores only config.json as well.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="config.json" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="config.json" />
+    </device-transfer>
+</data-extraction-rules>

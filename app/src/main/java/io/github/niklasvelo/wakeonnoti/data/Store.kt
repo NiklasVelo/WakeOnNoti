@@ -19,9 +19,15 @@ import java.util.concurrent.Executors
  *
  * The file lives in the app's private storage, which an in-place update keeps:
  * that is why the self-updater never has to migrate anything.
+ *
+ * [prefs] is this phone's own state (the AutoAI relay device id, what was already
+ * announced, the doctor's memory). Android's backup carries only [FILE] to a new
+ * phone, never [prefs] (res/xml/data_extraction_rules.xml, BackupRulesTest).
  */
 object Store {
     private const val TAG = "Store"
+    /** The rules and settings - the one file Android's backup carries to a new phone. */
+    const val FILE = "config.json"
     private lateinit var file: AtomicFile
     lateinit var prefs: SharedPreferences
         private set
@@ -34,7 +40,7 @@ object Store {
 
     fun init(context: Context) {
         val dir = context.filesDir
-        file = AtomicFile(File(dir, "config.json"))
+        file = AtomicFile(File(dir, FILE))
         prefs = context.getSharedPreferences("state", Context.MODE_PRIVATE)
         state.value = load(dir)
     }

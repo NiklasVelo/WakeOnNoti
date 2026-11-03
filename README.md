@@ -37,7 +37,9 @@ with an **Install update** button, and your rules and settings are kept.
     optionally with an instruction
 - **Log** – every incoming notification (kept only on the phone) and every rule that
   fired. Tap a notification to build a rule from it.
-- **Backup** – export / import all rules and settings as a JSON file.
+- **Backup** – export / import all rules and settings as a JSON file. Android's own backup
+  (Google backup, moving to a new phone) carries the same rules and settings; the log, the
+  AutoAI inbox and the phone's AutoAI connection identity stay on the old phone.
 
 For chat apps only the *newest* message is matched, and a notification that is merely
 updated in place (same content) does not fire again – so one "wake up" rings once, not on
