@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.6",
+    "version":  "0.2.7",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/02272cf091e905d555cf59d2883aabdd8cd6a12d/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/4e8214cf265bad51a43c9824c0b89b83a8758208/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/02272cf091e905d555cf59d2883aabdd8cd6a12d/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.6/WakeOnNoti-0.2.6.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/4e8214cf265bad51a43c9824c0b89b83a8758208/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.7/WakeOnNoti-0.2.7.apk"
              ],
-    "sha256":  "fd61680ba02f1f67a39d94fe4ac42c2c88d54393fd8fe892506aa3ea7fd12b2c",
-    "size":  1299407,
-    "notes":  "Inbox: zuverlaessigere Zustellung von AutoAI - gekuerzte und unvollstaendige Listen werden erkannt, keine Endlosschleife bei doppeltem Abruf",
-    "released_at":  "2026-11-03T16:35:17Z"
+    "sha256":  "d7dfa96111fb508642bbdde518efba24b14d652c7ede44d5bea38d53798f84c6",
+    "size":  1300311,
+    "notes":  "Backup: sichert nur Regeln und Einstellungen, nicht mehr die AutoAI-Geraete-ID - ein neues Handy aus dem Backup stoert das alte nicht mehr",
+    "released_at":  "2026-11-03T17:02:29Z"
 }
