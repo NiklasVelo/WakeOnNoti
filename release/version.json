@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.2",
+    "version":  "0.2.3",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7a74b14f7a0ed7c922936037632150a64715680a/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/3d60046704fb2d89c2a4911d3701e2246a981bb0/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7a74b14f7a0ed7c922936037632150a64715680a/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.2/WakeOnNoti-0.2.2.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/3d60046704fb2d89c2a4911d3701e2246a981bb0/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.3/WakeOnNoti-0.2.3.apk"
              ],
-    "sha256":  "fec14b2b0d6432e1415d2da9ac0010b50dfc5c5f0676f508c144417612939d0a",
+    "sha256":  "b59973dfad8b4d6656a771f37c266bc89902c238b6d5d08e2761c92f23d51849",
     "size":  1282995,
-    "notes":  "Listener self-repair and AutoAI\u0027s board",
-    "released_at":  "2026-11-03T12:01:39Z"
+    "notes":  "The \u0027Pause app activity if unused\u0027 warning now only appears when it can really apply: with notification access, Android already exempts WakeOnNoti (that is why the switch is greyed out or missing).",
+    "released_at":  "2026-11-03T12:38:23Z"
 }
