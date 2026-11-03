@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -30,8 +31,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -41,32 +44,77 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.actions.InboxItem
+import kotlinx.coroutines.delay
 import java.text.DateFormat
 import java.util.Date
+
+/** While the inbox is on screen, ask AutoAI for the whole open list this often. */
+private const val ON_SCREEN_REFRESH_MS = 60_000L
+/** An ask unanswered this long: AutoAI is probably not running on the PC. */
+private const val NO_ANSWER_MS = 20_000L
 
 /** What AutoAI needs from you. Each answer goes straight back to it. */
 @Composable
 fun InboxScreen(onBack: () -> Unit) {
     val items by AutoAiInbox.items.collectAsState()
     var answering by remember { mutableStateOf<InboxItem?>(null) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    // new items arrive by themselves; this catches one lost on the way
+    LaunchedEffect(Unit) {
+        var lastAsk = 0L
+        while (true) {
+            now = System.currentTimeMillis()
+            if (now - lastAsk >= ON_SCREEN_REFRESH_MS) {
+                AutoAiInbox.refresh()
+                lastAsk = now
+            }
+            delay(5_000L)
+        }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("AutoAI inbox") },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    IconButton(onClick = { AutoAiInbox.refresh() }, enabled = AutoAiInbox.enabled) {
+                        Icon(Icons.Filled.Refresh, "Reload")
+                    }
+                },
             )
         },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (AutoAiInbox.enabled) item { SyncLine(now) }
             if (items.isEmpty()) item { EmptyInbox() }
             items(items, key = { it.id }) { item -> InboxCard(item, onAnswer = { answering = item }) }
         }
     }
     answering?.let { item -> AnswerDialog(item, onDismiss = { answering = null }) }
+}
+
+/** How fresh this copy is: the reload button's answer, too. */
+@Composable
+private fun SyncLine(now: Long) {
+    val listed by AutoAiInbox.lastList.collectAsState()
+    val asking by AutoAiInbox.asking.collectAsState()
+    val problem by AutoAiInbox.lastProblem.collectAsState()
+    Text(
+        when {
+            problem != null -> "Cannot reach the server: $problem"
+            asking > 0 && now - asking < NO_ANSWER_MS -> "Asking AutoAI what is open…"
+            asking > 0 -> "No answer yet – is AutoAI running on the PC? It answers once it is."
+            listed > 0 -> "Up to date with AutoAI at " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(listed)) +
+                " · new things arrive by themselves"
+            else -> "Not compared with AutoAI yet – tap reload."
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = if (problem != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

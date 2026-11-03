@@ -31,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -90,6 +91,8 @@ fun HomeScreen(
             if (inbox.isNotEmpty()) item { InboxCard(inbox.size, inbox.any { it.urgency == "urgent" }, onInbox) }
             item { ProblemsCard() }
             if (AutoAiBoard.available) item { BoardCard(board, onBoard) }
+            // empty, it still opens: the inbox screen has the reload button
+            if (inbox.isEmpty() && AutoAiInbox.enabled) item { QuietInboxCard(onInbox) }
             item { UpdateBanner(onOpen = onSettings) }
             if (config.rules.isEmpty()) item { EmptyState(onNew) }
             items(config.rules, key = { it.id }) { rule ->
@@ -130,6 +133,19 @@ private fun InboxCard(count: Int, urgent: Boolean, onOpen: () -> Unit) {
                 )
             }
             Button(onClick = onOpen) { Text("Open") }
+        }
+    }
+}
+
+@Composable
+private fun QuietInboxCard(onOpen: () -> Unit) {
+    Card(onClick = onOpen) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("AutoAI's inbox", style = MaterialTheme.typography.titleMedium)
+                Text("Nothing waiting", style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(onClick = onOpen) { Text("Open") }
         }
     }
 }

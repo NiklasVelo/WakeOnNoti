@@ -137,6 +137,9 @@ switched on, that inbox is also here:
 - **Normal** items arrive as a quiet notification.
 - What you tap (*Approve*, *Answer…*, *Done*) goes straight back.
 - Anything you settle at the PC disappears here, and stops the alarm if it is still ringing.
+- Nothing open at the PC stays missing here: the phone also asks AutoAI for its whole open
+  list – after every start and reconnect, every 15 minutes, every minute while the inbox is
+  on screen, and when you tap *Reload*. Asking again never shows anything twice.
 
 The phone long-polls its own relay inbox on the same server, about every 30 seconds while
 the switch is on. For alarms in deep sleep, keep battery optimization off for WakeOnNoti.

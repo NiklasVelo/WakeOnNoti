@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import io.github.niklasvelo.wakeonnoti.actions.AutoAiBoard
 import io.github.niklasvelo.wakeonnoti.actions.BoardState
 import io.github.niklasvelo.wakeonnoti.actions.BoardTask
+import kotlinx.coroutines.delay
 
 private val STATE_LABEL = mapOf(
     "todo" to "To do", "doing" to "Doing", "waiting" to "Waiting",
@@ -85,8 +86,14 @@ fun BoardScreen(onBack: () -> Unit, onOpen: (Int) -> Unit, onNew: () -> Unit) {
     val context = LocalContext.current
     val board by AutoAiBoard.board.collectAsState()
     var showClosed by remember { mutableStateOf(false) }
-    // opening the screen is when the board is fetched; changes arrive by themselves after that
-    LaunchedEffect(Unit) { if (AutoAiBoard.available) AutoAiBoard.sync() }
+    // opening the screen is when the board is fetched; changes arrive by themselves after that,
+    // and the whole board again every minute while it is on screen, in case one got lost
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (AutoAiBoard.available) AutoAiBoard.sync()
+            delay(60_000L)
+        }
+    }
 
     Scaffold(
         topBar = {
