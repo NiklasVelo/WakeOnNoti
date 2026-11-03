@@ -135,6 +135,7 @@ object AutoAiInbox {
     private fun run() {
         var failures = 0
         send("inbox_sync", JSONObject())  // what is open right now, in case we missed something
+        if (AutoAiBoard.used) AutoAiBoard.sync()  // the board too, once it was ever opened here
         while (enabled) {
             try {
                 val r = Http.request("${base()}/api/relay/inbox?wait=$WAIT_S", "GET", headers(), timeoutMs = (WAIT_S + 20) * 1000)
@@ -183,6 +184,7 @@ object AutoAiInbox {
                     settled(id)
                     save(state.value.filterNot { it.id == id })
                 }
+                "board_list", "board_task", "board_ok", "board_error" -> AutoAiBoard.handle(m.optString("kind"), text)
                 else -> Log.i(TAG, "ignoring relay message of kind ${m.optString("kind")}")
             }
         } catch (e: Exception) {
@@ -230,7 +232,8 @@ object AutoAiInbox {
         }
     }
 
-    private fun send(kind: String, payload: JSONObject, onResult: (String) -> Unit = {}) {
+    /** Also AutoAiBoard's way out: same address, same device identity. */
+    internal fun send(kind: String, payload: JSONObject, onResult: (String) -> Unit = {}) {
         sender.execute {
             val body = JSONObject().put("to", Store.settings.autoAiTarget).put("kind", kind).put("text", payload.toString())
             val result = try {

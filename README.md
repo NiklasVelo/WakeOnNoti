@@ -139,6 +139,15 @@ switched on, that inbox is also here:
 The phone long-polls its own relay inbox on the same server, about every 30 seconds while
 the switch is on. For alarms in deep sleep, keep battery optimization off for WakeOnNoti.
 
+**AutoAI's board** (with the inbox switched on, a card on the home screen). AutoAI keeps a
+list of its tasks; here you see it, add tickets and change them:
+
+- What needs you comes first, then what is open, then what closed in the last 7 days.
+- Open a task for every field and its log. Change its state with one tap, or edit priority,
+  owner, what it waits on, the follow-up (`in 2h`, `14:00`, `morgen 09:00`, …) and add notes.
+- A ticket you add or change reaches AutoAI as your instruction. Changes made anywhere else
+  – at the PC or by AutoAI itself – show up here by themselves.
+
 ## Privacy
 
 Nothing leaves the phone unless one of *your* rules sends it (webhook, AutoAI). The log

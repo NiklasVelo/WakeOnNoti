@@ -72,6 +72,10 @@ sealed interface Screen {
     data object Settings : Screen
     data object Log : Screen
     data object Inbox : Screen
+    data object Board : Screen
+    data class BoardTask(val id: Int) : Screen
+    /** [id] null: a new ticket. */
+    data class BoardEdit(val id: Int?) : Screen
 }
 
 @Composable
@@ -102,8 +106,16 @@ private fun AppRoot(showUpdate: MutableState<Boolean>, showInbox: MutableState<B
             onSettings = { push(Screen.Settings) },
             onLog = { push(Screen.Log) },
             onInbox = { push(Screen.Inbox) },
+            onBoard = { push(Screen.Board) },
         )
         Screen.Inbox -> InboxScreen(onBack = { pop() })
+        Screen.Board -> BoardScreen(
+            onBack = { pop() },
+            onOpen = { push(Screen.BoardTask(it)) },
+            onNew = { push(Screen.BoardEdit(null)) },
+        )
+        is Screen.BoardTask -> BoardTaskScreen(s.id, onBack = { pop() }, onEdit = { push(Screen.BoardEdit(s.id)) })
+        is Screen.BoardEdit -> BoardEditScreen(s.id, onClose = { pop() })
         is Screen.Edit -> RuleEditor(s.rule, s.isNew, onClose = { pop() })
         Screen.Settings -> SettingsScreen(onBack = { pop() })
         Screen.Log -> LogScreen(

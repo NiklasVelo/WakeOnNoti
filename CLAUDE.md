@@ -76,6 +76,10 @@ the policy current at the time, these are from memory:
   `wakeonnoti`; message kinds in: `inbox`, `inbox_list`, `inbox_state`; out:
   `inbox_resolve`, `inbox_sync`). The AutoAI side is in AutoAI's `brain/initiative.py`
   and `devices/relay.py`.
+  `AutoAiBoard` (AutoAI's board: rides the inbox's poll and sender; out `board_sync`,
+  `board_edit`; in `board_list` (in parts, any order), `board_task`, `board_ok`,
+  `board_error`; cache filesDir/autoai_board.json). Contract: AutoAI's docs/board-api.md,
+  PC side `brain/tickets.py`. UI in `ui/BoardScreen.kt` (list, task, add/edit form).
 - `update/Updater.kt` - check, download, sha256, PackageInstaller session.
 - `ui/` - plain screen stack in `MainActivity` (no nav library).
 
@@ -93,6 +97,16 @@ Debug builds also carry `DebugHooks` (src/debug, never in release): `adb shell a
 listener, `-a nudge` runs the nudge alone. Watch `dumpsys notification` ("Live notification
 listeners", "Snoozed notification listeners") and logcat `ListenerDoctor` /
 `NotificationManagerService$NotificationListeners`.
+
+**AutoAI end to end without the real relay** (board, 2026-11-03): run AutoAI's
+`server/autoai_server.py` locally (`AUTOAI_SERVER_DATA=<tmp> AUTOAI_DEVICE_TOKEN=<test>
+AUTOAI_SERVER_BIND=127.0.0.1 AUTOAI_SERVER_PORT=18485`), plus a small harness that builds
+AutoAI's real `RelayThread`, `Board` and `Initiative` (never `.start()`ed: no agent, no API,
+no desktop actions) with `AUTOAI_DATA_DIR`, `AUTOAI_SERVER_URL` and `AUTOAI_DEVICE_TOKEN`
+set to the test values before importing autoai, and a fake hull whose `stimulus()` records
+what the assistant would be told. The emulator reaches the PC's 127.0.0.1 as `10.0.2.2`:
+push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
+`autoAiReceive=true`. Nothing touches the live instance, its memory or the real server.
 
 ## Hard-won details
 
