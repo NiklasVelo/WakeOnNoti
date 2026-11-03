@@ -32,12 +32,14 @@ data class InboxItem(
     val created: Long = System.currentTimeMillis(),
     /** What the user calls their AutoAI agent; shown instead of "AutoAI" when set. */
     val assistant: String = "",
+    /** false: [body] was cut (maybe to nothing) to fit AutoAI's list; the whole text is on the PC. */
+    val full: Boolean = true,
 ) {
     val from get() = assistant.ifBlank { "AutoAI" }
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("kind", kind).put("title", title).put("body", body)
-        .put("urgency", urgency).put("created", created).put("assistant", assistant)
+        .put("urgency", urgency).put("created", created).put("assistant", assistant).put("full", full)
 
     companion object {
         fun fromJson(o: JSONObject) = InboxItem(
@@ -50,6 +52,8 @@ data class InboxItem(
             created = o.optDouble("created", 0.0).let { if (it in 1.0..1e11) (it * 1000).toLong() else it.toLong() }
                 .takeIf { it > 0 } ?: System.currentTimeMillis(),
             assistant = o.optString("assistant"),
+            // only a list entry whose body was cut says false; an older AutoAI never says it
+            full = o.optBoolean("full", true),
         )
     }
 }
@@ -70,12 +74,20 @@ data class InboxItem(
  * only receives its inbox and never offers it as a place to send tasks.
  *
  * A message can still get lost on the way: the server hands each one out once,
- * to whichever poll takes it - also one it still holds for a connection that
- * died (the app updated, the network dropped) - and AutoAI does not retry a
- * send that failed. So the phone also asks for the whole open list
- * (inbox_sync -> inbox_list): after every start and reconnect, every
- * [EVERY_MS] in the background, and while the inbox is on screen. The list
- * replaces this copy, so asking again never duplicates anything.
+ * to whichever poll takes it, and an older AutoAI does not retry a send that
+ * failed. So the phone also asks for the whole open list (inbox_sync ->
+ * inbox_list): after every start and reconnect, every [EVERY_MS] in the
+ * background, and while the inbox is on screen. The list replaces this copy, so
+ * asking again never duplicates anything.
+ *
+ * Newer AutoAI and relay servers close some of those holes, and say so in fields
+ * an older one leaves out (AutoAI's docs/board-api.md, [InboxDelivery]):
+ * - The server lets only a device's newest poll take messages, so one it still
+ *   holds for a dead connection takes nothing; an older poll gets
+ *   `superseded: true`. This one then pauses: something else polls with this id.
+ * - A list too long for one message cuts bodies (`full: false`): the copy here
+ *   keeps its whole text. Too long even then, it leaves items out
+ *   (`complete: false`): what is missing is not settled here.
  */
 object AutoAiInbox {
     private const val TAG = "AutoAiInbox"
@@ -101,6 +113,7 @@ object AutoAiInbox {
     private val contact = MutableStateFlow<Long>(0L)
     private val problem = MutableStateFlow<String?>(null)
     private val listed = MutableStateFlow<Long>(0L)
+    private val missing = MutableStateFlow(0)
     private val asked = MutableStateFlow<Long>(0L)
     /** id -> when it arrived as an `inbox` message (ms); poll thread only. */
     private val arrived = HashMap<Int, Long>()
@@ -115,6 +128,8 @@ object AutoAiInbox {
     val lastProblem: StateFlow<String?> = problem
     /** When AutoAI last sent the whole open list (ms), 0 = not since the app started. */
     val lastList: StateFlow<Long> = listed
+    /** Open on the PC but left out of that list (too long for one message): 0 = none, -1 = some. */
+    val lastListMissing: StateFlow<Int> = missing
     /** When the list was asked for and is not here yet (ms), 0 = nothing outstanding. */
     val asking: StateFlow<Long> = asked
 
@@ -130,12 +145,15 @@ object AutoAiInbox {
         sync()
     }
 
-    /** Start or stop receiving to match the settings. Safe to call any time. */
+    /** Start or stop receiving to match the settings. Safe to call any time, from any thread:
+     *  two loops would be two pollers with one device id, ending each other's polls. */
+    @Synchronized
     fun sync() {
         if (!::app.isInitialized) return
         if (!enabled) {
             if (state.value.isNotEmpty()) save(emptyList())
             asked.value = 0L
+            missing.value = 0
             return  // a running loop sees the setting and ends after its current poll
         }
         if (loop?.isAlive == true) return
@@ -164,6 +182,7 @@ object AutoAiInbox {
     // ------------------------------------------------------------ receiving --
     private fun run() {
         var failures = 0
+        var superseded = 0
         catchUp()
         while (enabled) {
             if (System.currentTimeMillis() >= nextAsk) {
@@ -177,8 +196,24 @@ object AutoAiInbox {
                 failures = 0
                 contact.value = System.currentTimeMillis()
                 problem.value = null
-                val messages = JSONObject(r.body).optJSONArray("messages") ?: JSONArray()
-                if (messages.length() > 0) awake { for (i in 0 until messages.length()) handle(messages.getJSONObject(i)) }
+                val reply = InboxDelivery.poll(r.body)
+                if (reply.messages.isNotEmpty()) awake { reply.messages.forEach { handle(it) } }
+                if (reply.superseded) {
+                    // A newer poll with this device id ended this one (relay server 0.1.2+), so that
+                    // a poll held for a dead connection takes nothing. This connection is alive, so
+                    // something else polls as this phone: polling again at once, the two would end
+                    // each other in a tight loop.
+                    superseded++
+                    Log.w(TAG, "poll superseded by a newer one with this device id ($superseded in a row)")
+                    if (superseded == 3) EventLog.error(
+                        "AutoAI inbox: something else polls as this phone",
+                        "The server ended this phone's poll for a newer one with the same device id, 3 times in a row. " +
+                            "Is this WakeOnNoti also restored on another phone? Then each message from AutoAI reaches only one of them.",
+                    )
+                    Thread.sleep(InboxDelivery.supersededPauseMs(superseded))
+                } else {
+                    superseded = 0
+                }
             } catch (e: Exception) {
                 failures++
                 problem.value = e.message ?: e.toString()
@@ -237,26 +272,25 @@ object AutoAiInbox {
                     add(item, alert = true)
                 }
                 "inbox_list" -> {
-                    val arr = JSONObject(text).optJSONArray("items") ?: JSONArray()
-                    val fresh = (0 until arr.length()).map { InboxItem.fromJson(arr.getJSONObject(it)) }
-                    val ids = fresh.map { it.id }.toSet()
+                    val list = InboxDelivery.listing(text)
                     val now = System.currentTimeMillis()
                     arrived.values.removeAll { now - it >= OVERTAKE_MS }
-                    // AutoAI sends every message on its own thread, so an item that came moments
-                    // ago may be newer than this list - it stays; an inbox_state still removes it
-                    val newer = state.value.filter { it.id !in ids && it.id in arrived }
-                    val gone = state.value.map { it.id } - ids - newer.map { it.id }.toSet()
-                    gone.forEach { settled(it) }
-                    save((fresh + newer).sortedByDescending { it.created })
+                    // an item that came moments ago stays, a cut body does not replace a whole one,
+                    // and an incomplete list settles nothing it left out (InboxDelivery.merge)
+                    val merged = InboxDelivery.merge(state.value, list, recent = arrived.keys.toSet())
+                    merged.gone.forEach { settled(it) }
+                    save(merged.items)
+                    if (!list.complete) Log.i(TAG, "inbox_list left items out: ${list.items.size} of ${list.total}")
                     // a reconciliation, not news - except for what never reached this phone: a
                     // lost message is announced now, as it would have been. The very first list
                     // (the inbox just switched on) is a backlog, though: only urgent items ring.
                     val known = alerted()
                     val backlog = known.isEmpty() && !Store.prefs.getBoolean(KEY_LISTED, false)
-                    fresh.filter { it.id !in known && (!backlog || it.urgency == "urgent") }.forEach { alert(it) }
-                    remember(fresh.map { it.id })
+                    merged.listed.filter { it.id !in known && (!backlog || it.urgency == "urgent") }.forEach { alert(it) }
+                    remember(merged.listed.map { it.id })
                     if (backlog) Store.prefs.edit().putBoolean(KEY_LISTED, true).apply()
                     listed.value = now
+                    missing.value = list.missing
                     asked.value = 0L
                 }
                 "inbox_state" -> {
@@ -272,7 +306,8 @@ object AutoAiInbox {
         }
     }
 
-    private fun add(item: InboxItem, alert: Boolean) {
+    private fun add(new: InboxItem, alert: Boolean) {
+        val item = InboxDelivery.fuller(new, state.value.firstOrNull { it.id == new.id })
         save((listOf(item) + state.value.filterNot { it.id == item.id }).sortedByDescending { it.created })
         if (alert && item.id !in alerted()) alert(item)
         remember(listOf(item.id))

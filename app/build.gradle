@@ -95,4 +95,9 @@ dependencies {
     implementation 'androidx.compose.material:material-icons-core'
     implementation 'androidx.activity:activity-compose:1.9.3'
     implementation 'androidx.core:core-ktx:1.13.1'
+
+    // unit tests (app/src/test, gradlew testDebugUnitTest) only, never in the APK. org.json is
+    // part of Android, but on the JVM the tests would see only its stubs.
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.json:json:20240303'
 }

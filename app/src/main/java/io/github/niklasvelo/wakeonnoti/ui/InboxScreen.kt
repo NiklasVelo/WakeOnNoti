@@ -97,15 +97,19 @@ fun InboxScreen(onBack: () -> Unit) {
 @Composable
 private fun SyncLine(now: Long) {
     val listed by AutoAiInbox.lastList.collectAsState()
+    val missing by AutoAiInbox.lastListMissing.collectAsState()
     val asking by AutoAiInbox.asking.collectAsState()
     val problem by AutoAiInbox.lastProblem.collectAsState()
+    val at = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(listed))
     Text(
         when {
             problem != null -> "Cannot reach the server: $problem"
             asking > 0 && now - asking < NO_ANSWER_MS -> "Asking AutoAI what is open…"
             asking > 0 -> "No answer yet – is AutoAI running on the PC? It answers once it is."
-            listed > 0 -> "Up to date with AutoAI at " + DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(listed)) +
-                " · new things arrive by themselves"
+            listed > 0 && missing != 0 -> "Compared with AutoAI at $at, but " +
+                (if (missing > 0) "$missing of its open items" else "some of its open items") +
+                " did not fit in its list – the least urgent and oldest. They may be missing here or out of date."
+            listed > 0 -> "Up to date with AutoAI at $at · new things arrive by themselves"
             else -> "Not compared with AutoAI yet – tap reload."
         },
         style = MaterialTheme.typography.bodySmall,
@@ -174,6 +178,14 @@ private fun InboxCard(item: InboxItem) {
                 Text(
                     item.body, style = MaterialTheme.typography.bodyMedium,
                     maxLines = if (expanded) Int.MAX_VALUE else 4, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (!item.full) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (item.body.isBlank()) "The text did not fit in AutoAI's list – it is on the PC."
+                    else "Shortened to fit AutoAI's list – the whole text is on the PC.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Spacer(Modifier.height(8.dp))

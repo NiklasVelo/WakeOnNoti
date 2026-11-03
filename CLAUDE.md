@@ -84,6 +84,8 @@ the policy current at the time, these are from memory:
   after every start and reconnect plus once more 45 s later, every 15 min, every minute
   while the inbox is on screen, on resume and on Reload. The AutoAI side is in AutoAI's
   `brain/initiative.py` and `devices/relay.py`.
+  `InboxDelivery` (what the inbox decides, without Android, unit-tested): the poll's
+  `superseded`, the list's `full` / `complete` / `total`, how a list merges into the copy.
   `AutoAiBoard` (AutoAI's board: rides the inbox's poll and sender; out `board_sync`,
   `board_edit`; in `board_list` (in parts, any order), `board_task`, `board_ok`,
   `board_error`; cache filesDir/autoai_board.json). Contract: AutoAI's docs/board-api.md,
@@ -92,6 +94,10 @@ the policy current at the time, these are from memory:
 - `ui/` - plain screen stack in `MainActivity` (no nav library).
 
 ## Testing
+
+Unit tests: `gradlew testDebugUnitTest` (`app/src/test`, plain JVM). JUnit 4 and org.json
+are test-only dependencies; org.json is needed because the JVM sees only Android's stubs of it.
+Logic worth a test goes into a class without Android in it, like `InboxDelivery`.
 
 Emulator `umai_test` (API 35) boots headless:
 `D:\Android\sdk\emulator\emulator -avd umai_test -no-window -no-audio`.
@@ -198,6 +204,21 @@ push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
   itself < 60 s ago (AutoAI sends each message on its own thread, so an older list can
   overtake it - it would have stopped that item's alarm), and announces items never
   announced (a lost one), except on the very first list (backlog: urgent only).
+- **AutoAI 0.38.5 / relay server 0.1.2 close part of that, with three optional fields**
+  (AutoAI's docs/design.md "Inbox delivery to the phone"; an older side leaves them out
+  and everything reads as before). Verified end to end on the emulator (2026-11-03).
+  - Its sends now go through one ordered queue and are retried (`PhoneQueue`).
+  - `superseded: true` on a poll: a newer poll with the same device id took over, so a
+    poll held for a dead connection takes nothing. Seen live, it means a second poller
+    with this id; the loop pauses 5, 10, 20, 40, then 60 s, or the two would end each
+    other in a tight loop. `allowBackup` is on, so a restore onto another phone carries
+    the device id along (not verified).
+  - `full: false` on a list item: its body was cut to fit 20000 characters. The copy here
+    keeps its own whole text (`InboxDelivery.fuller`). A cut body of an item never seen
+    is stored and marked, and the card says it is shortened.
+  - `complete: false` (+ `total`): the list left items out. Nothing missing from it is
+    settled; its notification and alarm stay. Only a complete list settles, and the 60 s
+    overtake guard above still holds, so an item that came < 60 s ago survives even that.
 - **The relay device id is created once, under a lock** (`by lazy`). The first
   poll and the first send raced, and the phone registered twice under two ids,
   one of which never polled.
