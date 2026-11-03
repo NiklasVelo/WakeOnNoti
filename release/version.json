@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.5",
+    "version":  "0.2.6",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/b16a6aac2e5fd9a46e58ff3bda11fd6f035f6416/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/02272cf091e905d555cf59d2883aabdd8cd6a12d/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/b16a6aac2e5fd9a46e58ff3bda11fd6f035f6416/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.5/WakeOnNoti-0.2.5.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/02272cf091e905d555cf59d2883aabdd8cd6a12d/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.6/WakeOnNoti-0.2.6.apk"
              ],
-    "sha256":  "ac3286a7fe3e21caa830a37e20be0c015042dbdae212819faca56066fabdd469",
-    "size":  1299403,
-    "notes":  "Inbox: zu jeder Antwort eine optionale Notiz an AutoAI, in der App und direkt aus der Benachrichtigung",
-    "released_at":  "2026-11-03T14:15:21Z"
+    "sha256":  "fd61680ba02f1f67a39d94fe4ac42c2c88d54393fd8fe892506aa3ea7fd12b2c",
+    "size":  1299407,
+    "notes":  "Inbox: zuverlaessigere Zustellung von AutoAI - gekuerzte und unvollstaendige Listen werden erkannt, keine Endlosschleife bei doppeltem Abruf",
+    "released_at":  "2026-11-03T16:35:17Z"
 }
