@@ -74,8 +74,10 @@ the policy current at the time, these are from memory:
 - `actions/` - `Http`, `Webhook`, `AutoAiClient` (forwarding),
   `AutoAiInbox` (AutoAI's inbox on the phone: long-polls the relay as device platform
   `wakeonnoti`; message kinds in: `inbox`, `inbox_list`, `inbox_state`; out:
-  `inbox_resolve`, `inbox_sync`). The AutoAI side is in AutoAI's `brain/initiative.py`
-  and `devices/relay.py`.
+  `inbox_resolve`, `inbox_sync`). `inbox_sync` (answered by the whole open list) goes out
+  after every start and reconnect plus once more 45 s later, every 15 min, every minute
+  while the inbox is on screen, on resume and on Reload. The AutoAI side is in AutoAI's
+  `brain/initiative.py` and `devices/relay.py`.
   `AutoAiBoard` (AutoAI's board: rides the inbox's poll and sender; out `board_sync`,
   `board_edit`; in `board_list` (in parts, any order), `board_task`, `board_ok`,
   `board_error`; cache filesDir/autoai_board.json). Contract: AutoAI's docs/board-api.md,
@@ -178,6 +180,18 @@ push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
     unplugged, screen off), the alarm rang in 2 s and woke the screen. That
     needs the battery-optimization exemption; OEM battery managers may be
     harsher than the emulator.
+- **A relay message is delivered at most once - so the inbox re-asks for the whole list.**
+  Inbox #28 (2026-11-03) was shown on the PC and never reached the phone: AutoAI's send
+  to the server failed (`WinError 10054`, logged as "could not reach the phone inbox") and
+  `_to_phones` does not retry. The server has a second hole: `Store.inbox()` marks rows
+  delivered when a poll takes them, and it still holds a poll up to 30 s for a connection
+  that is gone (app updated or killed, network dropped) - that poll takes what arrives and
+  it is lost. Reproduced on the emulator (killed process, dead poll ate the first
+  `inbox_list`; the 45 s recheck brought the item). Hence `inbox_sync` on start/reconnect
+  + recheck, every 15 min and on screen. An `inbox_list` keeps an item that came by
+  itself < 60 s ago (AutoAI sends each message on its own thread, so an older list can
+  overtake it - it would have stopped that item's alarm), and announces items never
+  announced (a lost one), except on the very first list (backlog: urgent only).
 - **The relay device id is created once, under a lock** (`by lazy`). The first
   poll and the first send raced, and the phone registered twice under two ids,
   one of which never polled.

@@ -67,6 +67,14 @@ data class InboxItem(
  * phone from outside. Unlike forwarding, it identifies as a device (platform
  * "wakeonnoti"), because messages need an address; AutoAI knows that platform
  * only receives its inbox and never offers it as a place to send tasks.
+ *
+ * A message can still get lost on the way: the server hands each one out once,
+ * to whichever poll takes it - also one it still holds for a connection that
+ * died (the app updated, the network dropped) - and AutoAI does not retry a
+ * send that failed. So the phone also asks for the whole open list
+ * (inbox_sync -> inbox_list): after every start and reconnect, every
+ * [EVERY_MS] in the background, and while the inbox is on screen. The list
+ * replaces this copy, so asking again never duplicates anything.
  */
 object AutoAiInbox {
     private const val TAG = "AutoAiInbox"
@@ -74,6 +82,14 @@ object AutoAiInbox {
     private const val PLATFORM = "wakeonnoti"
     private const val KEY_DEVICE = "autoAiDeviceId"
     private const val KEY_ALERTED = "autoAiAlerted"
+    private const val KEY_LISTED = "autoAiListed"
+    /** After a start or reconnect, ask once more when a poll the server held for the dead connection is surely over. */
+    private const val RECHECK_MS = (WAIT_S + 15) * 1000L
+    /** In the background, ask for the whole list this often. */
+    private const val EVERY_MS = 15 * 60_000L
+    private const val REFRESH_GAP_MS = 5_000L
+    /** An item that came by itself this recently may be newer than a list arriving after it. */
+    private const val OVERTAKE_MS = 60_000L
 
     private lateinit var app: Context
     private lateinit var file: AtomicFile
@@ -81,13 +97,23 @@ object AutoAiInbox {
     private val state = MutableStateFlow<List<InboxItem>>(emptyList())
     private val contact = MutableStateFlow<Long>(0L)
     private val problem = MutableStateFlow<String?>(null)
+    private val listed = MutableStateFlow<Long>(0L)
+    private val asked = MutableStateFlow<Long>(0L)
+    /** id -> when it arrived as an `inbox` message (ms); poll thread only. */
+    private val arrived = HashMap<Int, Long>()
     @Volatile private var loop: Thread? = null
+    @Volatile private var nextAsk = 0L
+    @Volatile private var lastAsk = 0L
 
     val items: StateFlow<List<InboxItem>> = state
     /** Last successful contact with the server (ms), 0 = none yet. */
     val lastContact: StateFlow<Long> = contact
     /** Why the last attempt failed, or null. */
     val lastProblem: StateFlow<String?> = problem
+    /** When AutoAI last sent the whole open list (ms), 0 = not since the app started. */
+    val lastList: StateFlow<Long> = listed
+    /** When the list was asked for and is not here yet (ms), 0 = nothing outstanding. */
+    val asking: StateFlow<Long> = asked
 
     val enabled get() = Store.settings.autoAiReady && Store.settings.autoAiReceive
 
@@ -106,6 +132,7 @@ object AutoAiInbox {
         if (!::app.isInitialized) return
         if (!enabled) {
             if (state.value.isNotEmpty()) save(emptyList())
+            asked.value = 0L
             return  // a running loop sees the setting and ends after its current poll
         }
         if (loop?.isAlive == true) return
@@ -134,12 +161,16 @@ object AutoAiInbox {
     // ------------------------------------------------------------ receiving --
     private fun run() {
         var failures = 0
-        send("inbox_sync", JSONObject())  // what is open right now, in case we missed something
-        if (AutoAiBoard.used) AutoAiBoard.sync()  // the board too, once it was ever opened here
+        catchUp()
         while (enabled) {
+            if (System.currentTimeMillis() >= nextAsk) {
+                ask()
+                nextAsk = System.currentTimeMillis() + EVERY_MS
+            }
             try {
                 val r = Http.request("${base()}/api/relay/inbox?wait=$WAIT_S", "GET", headers(), timeoutMs = (WAIT_S + 20) * 1000)
                 if (r.code !in 200..299) throw IOException("HTTP ${r.code} ${r.body.take(120)}".trim())
+                if (failures > 0) catchUp()
                 failures = 0
                 contact.value = System.currentTimeMillis()
                 problem.value = null
@@ -157,6 +188,35 @@ object AutoAiInbox {
         if (enabled) sync()  // switched off and on again while this poll was still out
     }
 
+    /** After a start or a lost connection: whatever came meanwhile may have gone to a dead
+     *  poll. Ask now, and once more after [RECHECK_MS] - the answer can meet the same fate. */
+    private fun catchUp() {
+        ask()
+        if (AutoAiBoard.used) AutoAiBoard.sync()  // the board too, once it was ever opened here
+        nextAsk = System.currentTimeMillis() + RECHECK_MS
+    }
+
+    /**
+     * Ask AutoAI for everything still open: the reload button, the inbox on screen, the app
+     * coming to the front. Not again within [REFRESH_GAP_MS] of the last ask - a double tap,
+     * or the app starting and the inbox opening with it, need only one answer. Not longer:
+     * an item lost a moment after the last answer would wait for the next ask.
+     */
+    fun refresh() {
+        if (!::app.isInitialized || !enabled) return
+        if (System.currentTimeMillis() - lastAsk < REFRESH_GAP_MS) return
+        ask()
+    }
+
+    private fun ask() {
+        val at = System.currentTimeMillis()
+        lastAsk = at
+        asked.value = at
+        send("inbox_sync", JSONObject()) { result ->
+            if (result != "delivered") asked.compareAndSet(at, 0L)  // the poll reports why
+        }
+    }
+
     /** Keep the CPU up while a batch is handled - it may have just woken for it. */
     private inline fun awake(block: () -> Unit) {
         val lock = app.getSystemService(PowerManager::class.java)
@@ -168,16 +228,33 @@ object AutoAiInbox {
         val text = m.optString("text")
         try {
             when (m.optString("kind")) {
-                "inbox" -> add(InboxItem.fromJson(JSONObject(text)), alert = true)
+                "inbox" -> {
+                    val item = InboxItem.fromJson(JSONObject(text))
+                    arrived[item.id] = System.currentTimeMillis()
+                    add(item, alert = true)
+                }
                 "inbox_list" -> {
                     val arr = JSONObject(text).optJSONArray("items") ?: JSONArray()
                     val fresh = (0 until arr.length()).map { InboxItem.fromJson(arr.getJSONObject(it)) }
-                    val gone = state.value.map { it.id } - fresh.map { it.id }.toSet()
+                    val ids = fresh.map { it.id }.toSet()
+                    val now = System.currentTimeMillis()
+                    arrived.values.removeAll { now - it >= OVERTAKE_MS }
+                    // AutoAI sends every message on its own thread, so an item that came moments
+                    // ago may be newer than this list - it stays; an inbox_state still removes it
+                    val newer = state.value.filter { it.id !in ids && it.id in arrived }
+                    val gone = state.value.map { it.id } - ids - newer.map { it.id }.toSet()
                     gone.forEach { settled(it) }
-                    save(fresh.sortedByDescending { it.created })
-                    // a reconciliation, not news: only an urgent item never rung for rings now
-                    fresh.filter { it.urgency == "urgent" && it.id !in alerted() }.forEach { alert(it) }
+                    save((fresh + newer).sortedByDescending { it.created })
+                    // a reconciliation, not news - except for what never reached this phone: a
+                    // lost message is announced now, as it would have been. The very first list
+                    // (the inbox just switched on) is a backlog, though: only urgent items ring.
+                    val known = alerted()
+                    val backlog = known.isEmpty() && !Store.prefs.getBoolean(KEY_LISTED, false)
+                    fresh.filter { it.id !in known && (!backlog || it.urgency == "urgent") }.forEach { alert(it) }
                     remember(fresh.map { it.id })
+                    if (backlog) Store.prefs.edit().putBoolean(KEY_LISTED, true).apply()
+                    listed.value = now
+                    asked.value = 0L
                 }
                 "inbox_state" -> {
                     val id = JSONObject(text).getInt("id")
@@ -242,6 +319,7 @@ object AutoAiInbox {
             } catch (e: Exception) {
                 "failed: ${e.message ?: e}"
             }
+            Log.i(TAG, "$kind: $result")
             onResult(result)
         }
     }
@@ -266,7 +344,10 @@ object AutoAiInbox {
         Store.prefs.getStringSet(KEY_ALERTED, emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
 
     private fun remember(ids: List<Int>) {
-        val all = (alerted() + ids).sortedDescending().take(300)  // ids only grow; keep the newest
+        // ids only grow: keep the newest - and every one still open, or each list would announce it again
+        val open = state.value.map { it.id }.toSet()
+        val (still, rest) = (alerted() + ids).partition { it in open }
+        val all = still + rest.sortedDescending().take(300)
         Store.prefs.edit().putStringSet(KEY_ALERTED, all.map { it.toString() }.toSet()).apply()
     }
 }

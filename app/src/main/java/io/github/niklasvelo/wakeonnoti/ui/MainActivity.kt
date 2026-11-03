@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity() {
         ListenerDoctor.checkSoon(userPresent = true)
         Updater.check(quiet = true)
         AutoAiInbox.sync()
+        AutoAiInbox.refresh()  // the whole open list, in case something got lost
     }
 
     companion object {
