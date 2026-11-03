@@ -136,9 +136,11 @@ private fun rememberChecks(): List<Check> {
             Check(!Health.backgroundRestricted(context), "Background activity",
                 "Restricted – Android stops WakeOnNoti in the background. App info → Battery → “Unrestricted”.",
                 "Fix") { context.open(Health.appDetails(context)) },
-            Check(Health.hibernationExempt(context), "Pause app activity if unused",
-                "On – WakeOnNoti works in the background and is rarely opened, so Android may pause it, " +
-                    "listener included. Turn it off: App info → “Pause app activity if unused”.",
+            // shows only while it can really apply: with notification access Android exempts us itself
+            Check(!Health.hibernationRestricted(context), "Pausing unused apps",
+                "On – Android may pause an app that is rarely opened. Allowing notification access (above) " +
+                    "exempts WakeOnNoti by itself; or switch it off in App info (“Pause app activity if unused”, " +
+                    "on newer Android “Manage app if unused”).",
                 "Fix") { context.open(Health.hibernationSettings(context)) },
         )
     }

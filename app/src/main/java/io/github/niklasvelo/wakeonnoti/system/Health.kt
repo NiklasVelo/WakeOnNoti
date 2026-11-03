@@ -13,6 +13,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.IntentCompat
 import io.github.niklasvelo.wakeonnoti.data.EventLog
 import io.github.niklasvelo.wakeonnoti.data.Store
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,8 +71,19 @@ object Health {
     fun backgroundRestricted(c: Context) =
         Build.VERSION.SDK_INT >= 28 && c.getSystemService(ActivityManager::class.java).isBackgroundRestricted
 
-    /** "Pause app activity if unused" stops an app - and its listener - that is never opened. */
-    fun hibernationExempt(c: Context) = Build.VERSION.SDK_INT < 30 || c.packageManager.isAutoRevokeWhitelisted
+    /**
+     * Whether "Pause app activity if unused" can actually pause WakeOnNoti.
+     *
+     * isAutoRevokeWhitelisted() - and PackageManagerCompat.getUnusedAppRestrictionsStatus,
+     * which on Android 11+ is just that call - only reports an exemption the user or the
+     * installer set. The system also exempts every app with an *enabled* notification
+     * listener (PermissionController's HibernationPolicy, ExemptServicesLiveData), and then
+     * shows the toggle greyed out - or, on One UI, not at all. Checking the whitelist alone
+     * flagged a problem that the user could not even find, let alone fix (Galaxy A17,
+     * 2026-11-03). So: restricted only without notification access and without exemption.
+     */
+    fun hibernationRestricted(c: Context) =
+        Build.VERSION.SDK_INT >= 30 && !c.packageManager.isAutoRevokeWhitelisted && !hasAccess(c)
 
     val isSamsung: Boolean get() = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
 
@@ -142,10 +154,11 @@ object Health {
     fun installSettings(c: Context) =
         Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${c.packageName}"))
 
+    /** Where the toggle lives on this Android version (app info on 12+); app info if it has none. */
     fun hibernationSettings(c: Context): Intent =
-        if (Build.VERSION.SDK_INT >= 30) {
-            Intent(Intent.ACTION_AUTO_REVOKE_PERMISSIONS, Uri.fromParts("package", c.packageName, null))
-        } else {
+        try {
+            IntentCompat.createManageUnusedAppRestrictionsIntent(c, c.packageName)
+        } catch (_: UnsupportedOperationException) {
             appDetails(c)
         }
 

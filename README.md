@@ -97,7 +97,9 @@ that fails you get a notification saying so. What it cannot fix from inside the 
 - **Samsung**: One UI puts apps to sleep that you have not opened for a few days, and a
   sleeping app gets no notifications. *Settings → Battery → Background usage limits →
   Never sleeping apps → add WakeOnNoti*, and set *App info → Battery* to *Unrestricted*.
-- **Pause app activity if unused** (App info) – turn it off; WakeOnNoti is rarely opened.
+- **Pausing unused apps** (App info: *Pause app activity if unused* / *Manage app if unused*) –
+  nothing to do while notification access is on: Android exempts WakeOnNoti by itself, which
+  is why the switch is greyed out or, on Samsung, missing. The app only warns without access.
 - Still nothing: turn notification access for WakeOnNoti off and on again.
 
 ## Webhook examples
