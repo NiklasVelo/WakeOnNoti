@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.3",
+    "version":  "0.2.4",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/3d60046704fb2d89c2a4911d3701e2246a981bb0/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7731321fbeef7e0da8e6445f353f1ed4a4f682d3/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/3d60046704fb2d89c2a4911d3701e2246a981bb0/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.3/WakeOnNoti-0.2.3.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7731321fbeef7e0da8e6445f353f1ed4a4f682d3/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.4/WakeOnNoti-0.2.4.apk"
              ],
-    "sha256":  "b59973dfad8b4d6656a771f37c266bc89902c238b6d5d08e2761c92f23d51849",
-    "size":  1282995,
-    "notes":  "The \u0027Pause app activity if unused\u0027 warning now only appears when it can really apply: with notification access, Android already exempts WakeOnNoti (that is why the switch is greyed out or missing).",
-    "released_at":  "2026-11-03T12:38:23Z"
+    "sha256":  "0730853dc6b3560bc0dc7f43b0cc66b4c3c4e8c85a1deeb8d21d4a20ff3dffff",
+    "size":  1299379,
+    "notes":  "Inbox: Reload-Knopf und automatischer Abgleich mit AutoAI, verlorene Eintraege kommen zurueck",
+    "released_at":  "2026-11-03T13:52:15Z"
 }
