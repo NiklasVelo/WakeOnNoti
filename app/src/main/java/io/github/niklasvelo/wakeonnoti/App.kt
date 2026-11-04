@@ -13,8 +13,8 @@ import io.github.niklasvelo.wakeonnoti.system.Watchdog
 class App : Application() {
     override fun onCreate() {
         super.onCreate()
+        EventLog.init(this)  // first: Store reports a token problem there
         Store.init(this)
-        EventLog.init(this)
         Notifications.createChannels(this)
         ListenerDoctor.start(this)
         Watchdog.schedule(this)

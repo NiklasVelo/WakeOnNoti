@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.Rule
+import io.github.niklasvelo.wakeonnoti.data.Store
 import io.github.niklasvelo.wakeonnoti.system.Apps
 import io.github.niklasvelo.wakeonnoti.system.Health
 import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
@@ -57,6 +58,7 @@ class MainActivity : ComponentActivity() {
         // the user is looking: if the listener is gone, repair now rather than after the backoff
         ListenerDoctor.checkSoon(userPresent = true)
         Updater.check(quiet = true)
+        Store.retryToken()
         AutoAiInbox.sync()
         AutoAiInbox.refresh()  // the whole open list, in case something got lost
     }

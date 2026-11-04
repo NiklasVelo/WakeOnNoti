@@ -140,6 +140,8 @@ data class Settings(
     val keepAlive: Boolean = false,
     val logNotifications: Boolean = true,
     val autoAiUrl: String = "",
+    /** Lives only in memory and in the [TokenVault]: [toJson] leaves it out. [fromJson] reads it
+     *  from files older than the vault, and from one holding a token the Keystore refused. */
     val autoAiToken: String = "",
     /** Relay device name AutoAI's PC instance polls as. */
     val autoAiTarget: String = "pc",
@@ -150,12 +152,15 @@ data class Settings(
     val autoAiReceive: Boolean = false,
 ) {
     val autoAiReady get() = autoAiUrl.isNotBlank() && autoAiToken.isNotBlank()
+    private val autoAiServer get() = autoAiUrl.trim().trimEnd('/')
+
+    /** True if a token entered for [other]'s server belongs to this one too. */
+    fun sameServer(other: Settings) = autoAiServer.isNotEmpty() && autoAiServer == other.autoAiServer
 
     fun toJson(): JSONObject = JSONObject()
         .put("keepAlive", keepAlive)
         .put("logNotifications", logNotifications)
         .put("autoAiUrl", autoAiUrl)
-        .put("autoAiToken", autoAiToken)
         .put("autoAiTarget", autoAiTarget)
         .put("forward", forward.name)
         .put("forwardExclude", JSONArray(forwardExclude))
@@ -176,10 +181,32 @@ data class Settings(
 }
 
 data class Config(val rules: List<Rule> = emptyList(), val settings: Settings = Settings()) {
+    /** The rules and settings, as exported: never the AutoAI token. */
     fun toJson(): JSONObject = JSONObject()
         .put("format", 1)
         .put("rules", JSONArray(rules.map { it.toJson() }))
         .put("settings", settings.toJson())
+
+    /** config.json. The one place the token can reach a file: if the vault refused it, it stays
+     *  here unencrypted, as it always was, rather than being gone after the next restart. */
+    fun toFile(tokenSealed: Boolean): JSONObject = toJson().also {
+        if (!tokenSealed) it.getJSONObject("settings").put("autoAiToken", settings.autoAiToken)
+    }
+
+    fun withToken(token: String) = copy(settings = settings.copy(autoAiToken = token))
+
+    /**
+     * This imported file, with the token it should run with on a phone that has [current]. An
+     * export holds no token, so importing one must not cost the token of this phone. But only
+     * for the same server: a file from someone else could otherwise name their server and
+     * collect this phone's token with the next request. An export from before the vault
+     * brings its own token, which goes with its own server.
+     */
+    fun withTokenOf(current: Config) = when {
+        settings.autoAiToken.isNotBlank() -> this
+        settings.sameServer(current.settings) -> withToken(current.settings.autoAiToken)
+        else -> withToken("")
+    }
 
     companion object {
         fun fromJson(o: JSONObject): Config {

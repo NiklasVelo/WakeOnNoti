@@ -16,6 +16,7 @@ import android.util.Log
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import io.github.niklasvelo.wakeonnoti.BuildConfig
+import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.EventLog
 import io.github.niklasvelo.wakeonnoti.data.Store
 import io.github.niklasvelo.wakeonnoti.update.Updater
@@ -44,6 +45,7 @@ class WatchdogJob : JobService() {
                 // the doctor's own 2-minute check stops when Android freezes or kills the
                 // process; this job is what wakes it again
                 ListenerDoctor.checkSoon()
+                if (Store.retryToken()) AutoAiInbox.sync()
                 Updater.backgroundCheck(applicationContext)
             } catch (e: Exception) {
                 Log.w("Watchdog", "check failed", e)

@@ -61,6 +61,8 @@ the policy current at the time, these are from memory:
 
 - `data/` - `Model.kt` (Rule, RuleAction, Settings, JSON via org.json),
   `Store.kt` (filesDir/config.json, AtomicFile, single writer thread),
+  `TokenVault.kt` (the AutoAI token at rest, no Android in it, unit-tested),
+  `KeystoreSealer.kt` (its AES key in the Android Keystore),
   `EventLog.kt` (filesDir/log.json, newest first, 200 entries).
 - `engine/` - `NotiEvent` (flattens a notification to title/text),
   `Matcher`, `RuleEngine` (dedupe, cooldown, dispatch, AutoAI forwarding).
@@ -120,7 +122,9 @@ no desktop actions) with `AUTOAI_DATA_DIR`, `AUTOAI_SERVER_URL` and `AUTOAI_DEVI
 set to the test values before importing autoai, and a fake hull whose `stimulus()` records
 what the assistant would be told. The emulator reaches the PC's 127.0.0.1 as `10.0.2.2`:
 push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
-`autoAiReceive=true`. Nothing touches the live instance, its memory or the real server.
+`autoAiReceive=true` (the token in `autoAiToken`: the start moves it into the vault, as it
+does with a config from before the vault). Nothing touches the live instance, its memory or
+the real server.
 
 ## Hard-won details
 
@@ -236,5 +240,38 @@ push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
   backup had sp/state.xml and restored the old id; the new build backs up and restores only
   f/config.json in both modes, also from that old backup. Copies outside Android's backup
   (root backup apps, maybe OEM transfer tools) are not covered.
+- **The AutoAI token is in neither config.json nor the export.** `Settings.autoAiToken` lives in
+  memory; at rest it is `no_backup/autoai_token.enc`, AES-256-GCM under the Keystore key
+  `autoai_token` (`TokenVault`, `KeystoreSealer`). Decisions behind it:
+  - Keystore directly, not EncryptedSharedPreferences: security-crypto is deprecated, and this
+    is one secret in an app without other libraries.
+  - The key has no user authentication and no unlocked-device requirement, on purpose: the
+    process starts on a locked phone at night, and urgent items must ring then.
+  - The key cannot leave the phone, so the token does not move to a new one, by any route.
+    It gets entered again there. That is the price of keeping it out of backups.
+  - A failing Keystore must never cost the token. The vault takes it and is checked by opening
+    it again *before* it leaves config.json. If the vault refuses (`NOT_SEALED`), the token
+    stays in config.json in plain text, as in every version before, and is tried again on each
+    save and start. Android's backup then carries it too. `Config.toFile` is the one place that
+    can write it; `Config.toJson` (export) cannot.
+  - A file that does not open (`UNREADABLE`) is kept: the empty token in memory is not the user
+    clearing it, which is why `TokenVault.store("")` then does nothing. `Store.retryToken`
+    runs on resume and in the watchdog. A process can live for weeks, and without this a
+    Keystore hiccup at its start would silently keep AutoAI off for all of them.
+  - A token in config.json beats the vault at the start. It can only be from an older version, an
+    old backup, or a refusal, so it is never the older one; moving it is the whole migration, and
+    a crash halfway simply runs it again.
+  - Importing keeps the phone's token only for the same server (`Config.withTokenOf`). An export
+    has no token, so a plain import would have wiped it. Always keeping it would let a settings file
+    from someone else name their own server and collect the token with the next poll.
+  - An old export or old backup still holds the plain token, and earlier Google backups stay
+    until Android replaces them. Only changing the token on the server invalidates those.
+  Verified on the emulator (2026-11-04, API 35, a real 0.2.7 updated in place, a fake relay
+  logging `X-AutoAI-Token`): moved without opening the app, device id untouched, also with
+  full R8 (`debuggable false` on the debug build, which leaves the release app alone). 0.2.7's
+  Android backup held the token in plain text, the new one does not. Making `no_backup`
+  read-only (`run-as ... chmod 500`) is a way to reach `NOT_SEALED` on a real device.
+  `bmgr restore` onto an installed app clears its data first, so the device id changes there,
+  and did on unchanged 0.2.7 too: that is not the token, and not an in-place update.
 - **local.properties needs escaped backslashes** (`sdk.dir=D\:\\Android\\sdk`);
   an unescaped path fails with a German "Syntax für den Dateinamen" IOException.

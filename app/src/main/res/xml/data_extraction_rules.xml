@@ -12,6 +12,8 @@
       reports its loss), the update check.
     - log.json, autoai_inbox.json, autoai_board.json: this phone's history and AutoAI's copies,
       which a new phone fetches again.
+    - no_backup/autoai_token.enc: the AutoAI token, sealed with a Keystore key that cannot leave
+      this phone. config.json does not hold the token, so on a new phone it is entered again.
     Android applies these rules again when it restores, so a backup made by an older version
     (which had all of it) restores only config.json as well.
 -->

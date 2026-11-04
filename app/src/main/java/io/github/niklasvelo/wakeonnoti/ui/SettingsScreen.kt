@@ -49,6 +49,7 @@ import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.Config
 import io.github.niklasvelo.wakeonnoti.data.ForwardMode
 import io.github.niklasvelo.wakeonnoti.data.Store
+import io.github.niklasvelo.wakeonnoti.data.TokenProblem
 import io.github.niklasvelo.wakeonnoti.engine.NotiEvent
 import io.github.niklasvelo.wakeonnoti.system.Health
 import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
@@ -119,7 +120,8 @@ fun SettingsScreen(onBack: () -> Unit) {
             SectionTitle("Backup")
             Text(
                 "Rules and settings survive in-app updates. Export a copy before reinstalling or moving to a new phone. " +
-                    "The file includes webhook URLs and the AutoAI token – keep it private.",
+                    "The file includes webhook URLs – keep it private. The AutoAI token is not in it: it stays " +
+                    "encrypted on this phone, so enter it again on a new one.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
@@ -152,7 +154,14 @@ fun SettingsScreen(onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { pendingImport = null },
             title = { Text("Import settings?") },
-            text = { Text("This replaces your ${config.rules.size} rules and all settings with the ${imported.rules.size} rules from the file.") },
+            text = {
+                val losesToken = config.settings.autoAiToken.isNotBlank() &&
+                    imported.withTokenOf(config).settings.autoAiToken.isBlank()
+                Text(
+                    "This replaces your ${config.rules.size} rules and all settings with the ${imported.rules.size} rules from the file." +
+                        if (losesToken) " The file names another AutoAI server, so your AutoAI token is removed – enter the right one afterwards." else "",
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     Store.importJson(text)
@@ -172,8 +181,10 @@ private fun AutoAiSection() {
     val config by Store.config.collectAsState()
     val s = config.settings
     // local copies, so typing is never fighting the store round-trip
+    val tokenProblem by Store.tokenProblem.collectAsState()
     var url by remember { mutableStateOf(s.autoAiUrl) }
-    var token by remember { mutableStateOf(s.autoAiToken) }
+    // keyed: a token that could not be read may come back while this screen is open
+    var token by remember(tokenProblem) { mutableStateOf(Store.settings.autoAiToken) }
     var target by remember { mutableStateOf(s.autoAiTarget) }
     var showToken by remember { mutableStateOf(false) }
 
@@ -192,6 +203,12 @@ private fun AutoAiSection() {
     OutlinedTextField(
         token, { token = it.trim(); Store.updateSettings { st -> st.copy(autoAiToken = token) } },
         label = { Text("Device token") }, singleLine = true,
+        isError = tokenProblem != TokenProblem.NONE,
+        supportingText = when (tokenProblem) {
+            TokenProblem.NONE -> null
+            TokenProblem.UNREADABLE -> { { Text("The saved token cannot be read on this phone. If this stays, enter it again.") } }
+            TokenProblem.NOT_SEALED -> { { Text("Android's key store refused the token, so it is saved unencrypted in the app's private storage.") } }
+        },
         visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = { TextButton(onClick = { showToken = !showToken }) { Text(if (showToken) "Hide" else "Show") } },
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),

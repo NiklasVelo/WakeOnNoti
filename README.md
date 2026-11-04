@@ -39,7 +39,8 @@ with an **Install update** button, and your rules and settings are kept.
   fired. Tap a notification to build a rule from it.
 - **Backup** – export / import all rules and settings as a JSON file. Android's own backup
   (Google backup, moving to a new phone) carries the same rules and settings; the log, the
-  AutoAI inbox and the phone's AutoAI connection identity stay on the old phone.
+  AutoAI inbox and the phone's AutoAI connection identity stay on the old phone. Neither carries
+  the AutoAI device token, so on a new phone you enter it again.
 
 For chat apps only the *newest* message is matched, and a notification that is merely
 updated in place (same content) does not fire again – so one "wake up" rings once, not on
@@ -129,6 +130,11 @@ plus any apps you exclude). A rule's *Tell AutoAI* action can add an instruction
 "ping me on Discord", which AutoAI then carries out. Messages go to
 `POST {server}/api/relay/send` as `kind: "notification"` with a JSON body
 `{app, package, title, text, time, rule?, ask?}`.
+
+The device token is stored encrypted, with a key in the Android Keystore that never leaves the
+phone. It is not part of an export or of Android's backup. Importing settings keeps the token
+as long as the file names the same server; a file naming another server removes it, so that a
+settings file from someone else cannot collect it.
 
 **AutoAI's inbox on the phone** (optional, *Settings → AutoAI → Receive AutoAI's inbox*).
 AutoAI can work on things by itself. Whatever only you can do – approve something it drafted,
