@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.7",
+    "version":  "0.2.8",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/4e8214cf265bad51a43c9824c0b89b83a8758208/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7346cb8bdc37249563d77f8c5a1f23386494c42e/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/4e8214cf265bad51a43c9824c0b89b83a8758208/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.7/WakeOnNoti-0.2.7.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7346cb8bdc37249563d77f8c5a1f23386494c42e/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.8/WakeOnNoti-0.2.8.apk"
              ],
-    "sha256":  "d7dfa96111fb508642bbdde518efba24b14d652c7ede44d5bea38d53798f84c6",
+    "sha256":  "10129a7a62968bda3618246034e4c5607bcea11f207517035ce8efae10f0285e",
     "size":  1300311,
-    "notes":  "Backup: sichert nur Regeln und Einstellungen, nicht mehr die AutoAI-Geraete-ID - ein neues Handy aus dem Backup stoert das alte nicht mehr",
-    "released_at":  "2026-11-03T17:02:29Z"
+    "notes":  "AutoAI-Token liegt verschluesselt im Android Keystore, nicht mehr in Export und Backup - auf einem neuen Handy muss er neu eingegeben werden",
+    "released_at":  "2026-11-04T19:38:20Z"
 }
