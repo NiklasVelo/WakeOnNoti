@@ -8,6 +8,7 @@ val Rule.label get() = name.ifBlank { "Unnamed rule" }
 
 object Matcher {
     fun matches(rule: Rule, e: NotiEvent): Boolean {
+        if (rule.skipOngoing && (e.ongoing || e.foregroundService)) return false
         if (rule.apps.isNotEmpty() && e.pkg !in rule.apps) return false
         val hay = when (rule.field) {
             MatchField.TITLE -> e.title

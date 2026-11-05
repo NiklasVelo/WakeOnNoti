@@ -205,6 +205,7 @@ fun summary(context: Context, rule: Rule): String {
         rule.mode == MatchMode.ALL -> "contains " + quoted.joinToString(" and ") + where
         else -> "contains " + quoted.joinToString(" or ") + where
     }
+    val skip = if (rule.skipOngoing) ", not ongoing" else ""
     val actions = rule.actions.joinToString(" + ") { RuleEngine.describe(it) }.ifEmpty { "nothing" }
-    return "$apps · $condition → $actions"
+    return "$apps · $condition$skip → $actions"
 }

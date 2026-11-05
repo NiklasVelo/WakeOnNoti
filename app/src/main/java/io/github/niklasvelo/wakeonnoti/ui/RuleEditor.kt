@@ -140,6 +140,7 @@ fun RuleEditor(initial: Rule, isNew: Boolean, onClose: () -> Unit) {
                 MatchMode.entries.indexOf(rule.mode),
             ) { rule = rule.copy(mode = MatchMode.entries[it]) }
             val words = lines(keywordsText)
+            val notification = if (rule.skipOngoing) "non-ongoing notification" else "notification"
             val badPattern = if (rule.mode == MatchMode.REGEX) words.firstOrNull { Matcher.pattern(rule, it) == null } else null
             OutlinedTextField(
                 keywordsText, { keywordsText = it },
@@ -149,8 +150,8 @@ fun RuleEditor(initial: Rule, isNew: Boolean, onClose: () -> Unit) {
                     Text(
                         when {
                             badPattern != null -> "Not a valid pattern: $badPattern"
-                            words.isEmpty() && rule.apps.isEmpty() -> "Empty and no app chosen: EVERY notification fires this rule."
-                            words.isEmpty() -> "Empty: every notification from the chosen apps fires this rule."
+                            words.isEmpty() && rule.apps.isEmpty() -> "Empty and no app chosen: EVERY $notification fires this rule."
+                            words.isEmpty() -> "Empty: every $notification from the chosen apps fires this rule."
                             else -> "Title and text are searched; for chats, only the newest message."
                         }
                     )
@@ -166,6 +167,9 @@ fun RuleEditor(initial: Rule, isNew: Boolean, onClose: () -> Unit) {
                 label = { Text("But not if it contains (optional)") },
                 minLines = 1, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
             )
+            CheckRow("Skip ongoing notifications (music players, navigation, timers)", rule.skipOngoing) {
+                rule = rule.copy(skipOngoing = it)
+            }
             OutlinedTextField(
                 cooldownText, { cooldownText = it.filter(Char::isDigit).take(6) },
                 label = { Text("Cooldown in seconds (optional)") },

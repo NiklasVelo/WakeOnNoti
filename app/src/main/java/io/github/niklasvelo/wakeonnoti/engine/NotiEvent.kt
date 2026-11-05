@@ -21,6 +21,9 @@ data class NotiEvent(
      */
     val stamp: Long = 0,
     val ongoing: Boolean = false,
+    /** Shown by a running foreground service. Not always [ongoing]: Android 15 leaves that flag off
+     *  unless the app calls setOngoing, so a music player can be this and not that. */
+    val foregroundService: Boolean = false,
     val time: Long = System.currentTimeMillis(),
 ) {
     val fingerprint get() = listOf(pkg, title, text, stamp.toString()).joinToString("\u0001")
@@ -65,6 +68,7 @@ data class NotiEvent(
                 key = sbn.key,
                 stamp = stamp,
                 ongoing = sbn.isOngoing,
+                foregroundService = n.flags and Notification.FLAG_FOREGROUND_SERVICE != 0,
             )
         }
 

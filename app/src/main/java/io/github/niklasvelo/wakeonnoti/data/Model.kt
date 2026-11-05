@@ -26,6 +26,9 @@ data class Rule(
     val excludes: List<String> = emptyList(),
     val caseSensitive: Boolean = false,
     val wholeWord: Boolean = false,
+    /** Ongoing notifications (music players, navigation, timers) and those of a foreground
+     *  service never fire this rule. */
+    val skipOngoing: Boolean = false,
     /** Minimum seconds between two firings of this rule; 0 = no limit. */
     val cooldownSec: Int = 0,
     val actions: List<RuleAction> = listOf(RuleAction.Alarm()),
@@ -41,6 +44,7 @@ data class Rule(
         .put("excludes", JSONArray(excludes))
         .put("caseSensitive", caseSensitive)
         .put("wholeWord", wholeWord)
+        .put("skipOngoing", skipOngoing)
         .put("cooldownSec", cooldownSec)
         .put("actions", JSONArray(actions.map { it.toJson() }))
 
@@ -56,6 +60,7 @@ data class Rule(
             excludes = o.optJSONArray("excludes").strings(),
             caseSensitive = o.optBoolean("caseSensitive", false),
             wholeWord = o.optBoolean("wholeWord", false),
+            skipOngoing = o.optBoolean("skipOngoing", false),
             cooldownSec = o.optInt("cooldownSec", 0),
             actions = o.optJSONArray("actions")?.let { arr ->
                 (0 until arr.length()).mapNotNull { RuleAction.fromJson(arr.optJSONObject(it)) }

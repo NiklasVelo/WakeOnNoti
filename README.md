@@ -24,6 +24,8 @@ with an **Install update** button, and your rules and settings are kept.
   - **contains** – any / all of your words, or regular expressions; in the title,
     the text, or anywhere; optionally case-sensitive or whole words only
   - **but not** – words that cancel the match
+  - **skip ongoing** – optionally leaves out ongoing notifications, such as music players,
+    navigation and timers, which would otherwise fire with every change
   - **cooldown** – optional minimum time between two firings
 - **Actions** – one rule can do several:
   - **Alarm** – loops a sound on the *alarm* stream (so silent mode does not mute it),

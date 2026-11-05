@@ -114,6 +114,12 @@ listener, `-a nudge` runs the nudge alone. Watch `dumpsys notification` ("Live n
 listeners", "Snoozed notification listeners") and logcat `ListenerDoctor` /
 `NotificationManagerService$NotificationListeners`.
 
+`cmd notification post` has no flag for ongoing, and the listener ignores this app's own
+notifications, so an ongoing one needs another app: a few lines calling `setOngoing(true)`, or
+`startForeground` for a service. An AVD runs only once: to test beside a session that holds
+`umai_test`, create a second AVD and give the server and harness other ports
+(`AUTOAI_SERVER_PORT`, `E2E_SERVER`, `--port`).
+
 **AutoAI end to end without the real relay** (board, 2026-11-03): run AutoAI's
 `server/autoai_server.py` locally (`AUTOAI_SERVER_DATA=<tmp> AUTOAI_DEVICE_TOKEN=<test>
 AUTOAI_SERVER_BIND=127.0.0.1 AUTOAI_SERVER_PORT=18485`), plus a small harness that builds
@@ -273,5 +279,19 @@ the real server.
   read-only (`run-as ... chmod 500`) is a way to reach `NOT_SEALED` on a real device.
   `bmgr restore` onto an installed app clears its data first, so the device id changes there,
   and did on unchanged 0.2.7 too: that is not the token, and not an in-place update.
+- **"Ongoing" and "shown by a foreground service" are two things.** On API 35 a foreground
+  service that does not call `setOngoing(true)` has `NO_CLEAR|FOREGROUND_SERVICE` and no
+  `ONGOING_EVENT`, so `sbn.isOngoing` is false and it would fire on every track change. That is
+  what the rule option "Skip ongoing notifications" is for, so `Matcher` checks both
+  (`NotiEvent.ongoing`, `foregroundService`). `ForwardMode.ALL` still checks `ongoing` alone.
+  Verified on the emulator (2026-11-05, a catch-all webhook rule, a small test app): with the
+  option, ongoing posts, their in-place updates and both kinds of service were received and did
+  not fire, also after a restart; a normal post did, and so did an ongoing one that turned normal
+  with new text. Without the option all of them fired.
+- **Android can hide a notification's text from a listener.** On API 35 the listener got
+  "Sensitive notification content hidden" for some test texts with a digit (`B1-normal`;
+  `mSensitiveContent=true` in `dumpsys notification --noredact`), never for one without. Such
+  notifications all read alike: keywords cannot match them, and the dedupe takes a second one
+  within 30 s for a repeat. Keep digits out of test texts.
 - **local.properties needs escaped backslashes** (`sdk.dir=D\:\\Android\\sdk`);
   an unescaped path fails with a German "Syntax für den Dateinamen" IOException.
