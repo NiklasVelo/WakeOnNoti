@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.8",
+    "version":  "0.2.9",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7346cb8bdc37249563d77f8c5a1f23386494c42e/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/04fe63603ca7ffbf6745960581f2243d1768cabf/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/7346cb8bdc37249563d77f8c5a1f23386494c42e/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.8/WakeOnNoti-0.2.8.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/04fe63603ca7ffbf6745960581f2243d1768cabf/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.9/WakeOnNoti-0.2.9.apk"
              ],
-    "sha256":  "10129a7a62968bda3618246034e4c5607bcea11f207517035ce8efae10f0285e",
-    "size":  1300311,
-    "notes":  "AutoAI-Token liegt verschluesselt im Android Keystore, nicht mehr in Export und Backup - auf einem neuen Handy muss er neu eingegeben werden",
-    "released_at":  "2026-11-04T19:38:20Z"
+    "sha256":  "43793219b8cefae7cdffc5ba62a1eaddb38fcc8ab6e677094915ad702d4e001c",
+    "size":  1300307,
+    "notes":  "Regeln: Option \u0027Laufende Benachrichtigungen überspringen\u0027 (Skip ongoing)",
+    "released_at":  "2026-11-06T07:30:19Z"
 }
