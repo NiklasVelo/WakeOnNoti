@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -26,7 +24,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,18 +36,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.niklasvelo.wakeonnoti.BuildConfig
-import io.github.niklasvelo.wakeonnoti.actions.AutoAiClient
-import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.Config
-import io.github.niklasvelo.wakeonnoti.data.ForwardMode
 import io.github.niklasvelo.wakeonnoti.data.Store
-import io.github.niklasvelo.wakeonnoti.data.TokenProblem
-import io.github.niklasvelo.wakeonnoti.engine.NotiEvent
 import io.github.niklasvelo.wakeonnoti.system.Health
 import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
 import io.github.niklasvelo.wakeonnoti.system.KeepAliveService
@@ -114,14 +103,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                 context.toast("Checking the notification listener…")
             }) { Text("Repair notification listener") }
 
-            SectionTitle("AutoAI")
-            AutoAiSection()
-
             SectionTitle("Backup")
             Text(
                 "Rules and settings survive in-app updates. Export a copy before reinstalling or moving to a new phone. " +
-                    "The file includes webhook URLs – keep it private. The AutoAI token is not in it: it stays " +
-                    "encrypted on this phone, so enter it again on a new one.",
+                    "The file includes webhook URLs and headers – keep it private.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(8.dp))
@@ -139,8 +124,8 @@ fun SettingsScreen(onBack: () -> Unit) {
 
             SectionTitle("About")
             Text(
-                "WakeOnNoti ${BuildConfig.VERSION_NAME} – open source. Everything stays on this phone unless a rule " +
-                    "sends it somewhere (webhook, AutoAI).",
+                "WakeOnNoti ${BuildConfig.VERSION_NAME} – open source. Everything stays on this phone unless a rule's " +
+                    "webhook sends it somewhere.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             TextButton(onClick = { context.open(Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.REPO_URL))) }) {
@@ -154,14 +139,7 @@ fun SettingsScreen(onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = { pendingImport = null },
             title = { Text("Import settings?") },
-            text = {
-                val losesToken = config.settings.autoAiToken.isNotBlank() &&
-                    imported.withTokenOf(config).settings.autoAiToken.isBlank()
-                Text(
-                    "This replaces your ${config.rules.size} rules and all settings with the ${imported.rules.size} rules from the file." +
-                        if (losesToken) " The file names another AutoAI server, so your AutoAI token is removed – enter the right one afterwards." else "",
-                )
-            },
+            text = { Text("This replaces your ${config.rules.size} rules and all settings with the ${imported.rules.size} rules from the file.") },
             confirmButton = {
                 TextButton(onClick = {
                     Store.importJson(text)
@@ -172,102 +150,5 @@ fun SettingsScreen(onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { pendingImport = null }) { Text("Cancel") } },
         )
-    }
-}
-
-@Composable
-private fun AutoAiSection() {
-    val context = LocalContext.current
-    val config by Store.config.collectAsState()
-    val s = config.settings
-    // local copies, so typing is never fighting the store round-trip
-    val tokenProblem by Store.tokenProblem.collectAsState()
-    var url by remember { mutableStateOf(s.autoAiUrl) }
-    // keyed: a token that could not be read may come back while this screen is open
-    var token by remember(tokenProblem) { mutableStateOf(Store.settings.autoAiToken) }
-    var target by remember { mutableStateOf(s.autoAiTarget) }
-    var showToken by remember { mutableStateOf(false) }
-
-    Text(
-        "AutoAI is an AI advisor app, currently in closed beta – without access, just leave this empty. " +
-            "With access, notifications reach AutoAI through its server's relay, like AutoAI's own phone app, " +
-            "and rules can also tell it directly with a “Tell AutoAI” action.",
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    OutlinedTextField(
-        url, { url = it.trim(); Store.updateSettings { st -> st.copy(autoAiUrl = url) } },
-        label = { Text("Server URL") }, placeholder = { Text("https://your-autoai-server") },
-        singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    )
-    OutlinedTextField(
-        token, { token = it.trim(); Store.updateSettings { st -> st.copy(autoAiToken = token) } },
-        label = { Text("Device token") }, singleLine = true,
-        isError = tokenProblem != TokenProblem.NONE,
-        supportingText = when (tokenProblem) {
-            TokenProblem.NONE -> null
-            TokenProblem.UNREADABLE -> { { Text("The saved token cannot be read on this phone. If this stays, enter it again.") } }
-            TokenProblem.NOT_SEALED -> { { Text("Android's key store refused the token, so it is saved unencrypted in the app's private storage.") } }
-        },
-        visualTransformation = if (showToken) VisualTransformation.None else PasswordVisualTransformation(),
-        trailingIcon = { TextButton(onClick = { showToken = !showToken }) { Text(if (showToken) "Hide" else "Show") } },
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    )
-    OutlinedTextField(
-        target, { target = it.trim(); Store.updateSettings { st -> st.copy(autoAiTarget = target.ifBlank { "pc" }) } },
-        label = { Text("Deliver to device") }, supportingText = { Text("The AutoAI device that should get them – normally “pc”") },
-        singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    )
-    Text("Forward automatically", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(top = 8.dp, bottom = 8.dp))
-    Segmented(listOf("Off", "Rule matches", "Everything"), ForwardMode.entries.indexOf(s.forward)) { i ->
-        Store.updateSettings { it.copy(forward = ForwardMode.entries[i]) }
-    }
-    Text(
-        when (s.forward) {
-            ForwardMode.OFF -> "Only rules with a “Tell AutoAI” action reach AutoAI."
-            ForwardMode.MATCHES -> "Every notification that fires a rule also reaches AutoAI."
-            ForwardMode.ALL -> "Every notification reaches AutoAI (ongoing ones like music players excepted)."
-        },
-        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
-    )
-    if (s.forward == ForwardMode.ALL) {
-        Text("Never forward these apps", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-        AppChips(s.forwardExclude, "None excluded") { pkgs -> Store.updateSettings { it.copy(forwardExclude = pkgs) } }
-    }
-    TextButton(
-        enabled = s.autoAiReady,
-        onClick = {
-            AutoAiClient.send(
-                NotiEvent.sample(context, null, "Test from WakeOnNoti – you can ignore this."), "Test", null, report = true,
-            ) { context.toast("AutoAI: $it") }
-        },
-    ) { Text("Send test notification") }
-
-    if (s.autoAiReady) {
-        SwitchRow(
-            "Receive AutoAI's inbox",
-            "When AutoAI needs you – a decision, an approval, something only you can do – it shows up here, and " +
-                "urgent things ring the alarm, at night too. Checks the server about every 30 seconds while on; " +
-                "for alarms in deep sleep, keep battery optimization off for WakeOnNoti.",
-            s.autoAiReceive,
-        ) { on ->
-            Store.updateSettings { it.copy(autoAiReceive = on) }
-            AutoAiInbox.sync()
-        }
-        if (s.autoAiReceive) {
-            val contact by AutoAiInbox.lastContact.collectAsState()
-            val problem by AutoAiInbox.lastProblem.collectAsState()
-            Text(
-                when {
-                    problem != null -> "Cannot reach the server: $problem"
-                    contact > 0 -> "Connected – last contact " +
-                        java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(Date(contact))
-                    else -> "Connecting…"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (problem != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }

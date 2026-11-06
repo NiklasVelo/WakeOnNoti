@@ -195,7 +195,6 @@ fun RuleEditor(initial: Rule, isNew: Boolean, onClose: () -> Unit) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { rule = rule.copy(actions = rule.actions + RuleAction.Alarm()) }) { Text("+ Alarm") }
                 OutlinedButton(onClick = { rule = rule.copy(actions = rule.actions + RuleAction.Webhook()) }) { Text("+ Webhook") }
-                OutlinedButton(onClick = { rule = rule.copy(actions = rule.actions + RuleAction.AutoAi()) }) { Text("+ AutoAI") }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -268,7 +267,6 @@ private fun ActionCard(action: RuleAction, rule: Rule, onChange: (RuleAction) ->
                     when (action) {
                         is RuleAction.Alarm -> "Ring an alarm"
                         is RuleAction.Webhook -> "Call a webhook"
-                        is RuleAction.AutoAi -> "Tell AutoAI"
                     },
                     style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f),
                 )
@@ -278,7 +276,6 @@ private fun ActionCard(action: RuleAction, rule: Rule, onChange: (RuleAction) ->
                 when (action) {
                     is RuleAction.Alarm -> AlarmFields(action, onChange)
                     is RuleAction.Webhook -> WebhookFields(action, rule, onChange)
-                    is RuleAction.AutoAi -> AutoAiFields(action, onChange)
                 }
             }
         }
@@ -401,19 +398,4 @@ private fun WebhookFields(a: RuleAction.Webhook, rule: Rule, onChange: (RuleActi
             }
         },
     ) { Text("Send test") }
-}
-
-@Composable
-private fun AutoAiFields(a: RuleAction.AutoAi, onChange: (RuleAction) -> Unit) {
-    OutlinedTextField(
-        a.ask, { onChange(a.copy(ask = it)) }, label = { Text("Instruction for AutoAI (optional)") },
-        placeholder = { Text("e.g. Ping me on Discord") },
-        supportingText = {
-            Text("Empty: AutoAI is just told about it. Filled: AutoAI acts on it right away, with this instruction.")
-        },
-        minLines = 2, modifier = Modifier.fillMaxWidth(),
-    )
-    if (!Store.settings.autoAiReady) {
-        Text("Set up AutoAI in Settings first.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-    }
 }

@@ -1,12 +1,10 @@
 package io.github.niklasvelo.wakeonnoti.engine
 
 import android.content.Context
-import io.github.niklasvelo.wakeonnoti.actions.AutoAiClient
 import io.github.niklasvelo.wakeonnoti.actions.Webhook
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmInfo
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmService
 import io.github.niklasvelo.wakeonnoti.data.EventLog
-import io.github.niklasvelo.wakeonnoti.data.ForwardMode
 import io.github.niklasvelo.wakeonnoti.data.LogKind
 import io.github.niklasvelo.wakeonnoti.data.Rule
 import io.github.niklasvelo.wakeonnoti.data.RuleAction
@@ -56,23 +54,10 @@ object RuleEngine {
 
     fun onNotification(context: Context, e: NotiEvent) {
         if (!isNew(e)) return
-        val settings = Store.settings
-        if (settings.logNotifications) {
+        if (Store.settings.logNotifications) {
             EventLog.add(LogKind.NOTIFICATION, listOf(e.appName, e.title).filter { it.isNotBlank() }.joinToString(": "), e.text, e.pkg)
         }
-        val matched = Store.rules.filter { it.enabled && Matcher.matches(it, e) && cooledDown(it, e.time) }
-        matched.forEach { fire(context, it, e) }
-
-        if (!settings.autoAiReady) return
-        // a rule with its own AutoAI action already told AutoAI about this one
-        val told = matched.any { r -> r.actions.any { it is RuleAction.AutoAi } }
-        when (settings.forward) {
-            ForwardMode.OFF -> Unit
-            ForwardMode.MATCHES -> if (!told) matched.firstOrNull()?.let { AutoAiClient.send(e, it.label, null) }
-            ForwardMode.ALL -> if (!told && !e.ongoing && e.pkg !in settings.forwardExclude) {
-                AutoAiClient.send(e, matched.firstOrNull()?.label, null)
-            }
-        }
+        Store.rules.filter { it.enabled && Matcher.matches(it, e) && cooledDown(it, e.time) }.forEach { fire(context, it, e) }
     }
 
     fun fire(context: Context, rule: Rule, e: NotiEvent, test: Boolean = false) {
@@ -88,7 +73,6 @@ object RuleEngine {
                 when (action) {
                     is RuleAction.Alarm -> AlarmService.start(context, AlarmInfo.of(rule, e, action))
                     is RuleAction.Webhook -> Webhook.send(action, rule.label, e)
-                    is RuleAction.AutoAi -> AutoAiClient.send(e, rule.label, action.ask, report = true)
                 }
             } catch (ex: Exception) {
                 EventLog.error("\"${rule.label}\": ${describe(action)} failed", ex.toString())
@@ -99,6 +83,5 @@ object RuleEngine {
     fun describe(a: RuleAction) = when (a) {
         is RuleAction.Alarm -> "Alarm"
         is RuleAction.Webhook -> "Webhook"
-        is RuleAction.AutoAi -> "AutoAI"
     }
 }

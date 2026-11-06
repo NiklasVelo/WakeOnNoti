@@ -6,14 +6,9 @@
 
     Only the rules and settings (files/config.json, the same as the app's own export). An
     <include> makes everything else stay behind, which is the point:
-    - shared_prefs/state.xml is this phone's own state: the AutoAI relay device id (two phones
-      with one id would end each other's polls on the relay server), which inbox items were
-      already announced here, whether notification access was ever granted here (the doctor
-      reports its loss), the update check.
-    - log.json, autoai_inbox.json, autoai_board.json: this phone's history and AutoAI's copies,
-      which a new phone fetches again.
-    - no_backup/autoai_token.enc: the AutoAI token, sealed with a Keystore key that cannot leave
-      this phone. config.json does not hold the token, so on a new phone it is entered again.
+    - shared_prefs/state.xml is this phone's own state: whether notification access was ever
+      granted here (the doctor reports its loss), the update check.
+    - log.json: this phone's history.
     Android applies these rules again when it restores, so a backup made by an older version
     (which had all of it) restores only config.json as well.
 -->

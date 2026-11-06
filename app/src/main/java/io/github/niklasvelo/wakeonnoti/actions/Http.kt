@@ -10,6 +10,7 @@ import java.net.URL
 object Http {
     class Response(val code: Int, val body: String)
 
+    private const val TIMEOUT_MS = 15_000
     private val userAgent = "WakeOnNoti/${BuildConfig.VERSION_NAME}"
 
     fun request(
@@ -17,13 +18,12 @@ object Http {
         method: String = "GET",
         headers: Map<String, String> = emptyMap(),
         body: ByteArray? = null,
-        timeoutMs: Int = 15_000,
     ): Response {
         val c = URL(url).openConnection() as HttpURLConnection
         try {
             c.requestMethod = method
-            c.connectTimeout = timeoutMs
-            c.readTimeout = timeoutMs
+            c.connectTimeout = TIMEOUT_MS
+            c.readTimeout = TIMEOUT_MS
             c.setRequestProperty("User-Agent", userAgent)
             headers.forEach { (k, v) -> c.setRequestProperty(k, v) }
             if (body != null) {

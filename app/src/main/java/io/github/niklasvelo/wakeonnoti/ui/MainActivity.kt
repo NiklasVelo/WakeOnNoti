@@ -26,9 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.data.Rule
-import io.github.niklasvelo.wakeonnoti.data.Store
 import io.github.niklasvelo.wakeonnoti.system.Apps
 import io.github.niklasvelo.wakeonnoti.system.Health
 import io.github.niklasvelo.wakeonnoti.system.ListenerDoctor
@@ -36,20 +34,17 @@ import io.github.niklasvelo.wakeonnoti.update.Updater
 
 class MainActivity : ComponentActivity() {
     private val showUpdate = mutableStateOf(false)
-    private val showInbox = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         showUpdate.value = intent.getBooleanExtra(EXTRA_SHOW_UPDATE, false)
-        showInbox.value = intent.getBooleanExtra(EXTRA_SHOW_INBOX, false)
-        setContent { AppTheme { AppRoot(showUpdate, showInbox) } }
+        setContent { AppTheme { AppRoot(showUpdate) } }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         if (intent.getBooleanExtra(EXTRA_SHOW_UPDATE, false)) showUpdate.value = true
-        if (intent.getBooleanExtra(EXTRA_SHOW_INBOX, false)) showInbox.value = true
     }
 
     override fun onResume() {
@@ -58,14 +53,10 @@ class MainActivity : ComponentActivity() {
         // the user is looking: if the listener is gone, repair now rather than after the backoff
         ListenerDoctor.checkSoon(userPresent = true)
         Updater.check(quiet = true)
-        Store.retryToken()
-        AutoAiInbox.sync()
-        AutoAiInbox.refresh()  // the whole open list, in case something got lost
     }
 
     companion object {
         const val EXTRA_SHOW_UPDATE = "showUpdate"
-        const val EXTRA_SHOW_INBOX = "showInbox"
     }
 }
 
@@ -74,15 +65,10 @@ sealed interface Screen {
     data class Edit(val rule: Rule, val isNew: Boolean) : Screen
     data object Settings : Screen
     data object Log : Screen
-    data object Inbox : Screen
-    data object Board : Screen
-    data class BoardTask(val id: Int) : Screen
-    /** [id] null: a new ticket. */
-    data class BoardEdit(val id: Int?) : Screen
 }
 
 @Composable
-private fun AppRoot(showUpdate: MutableState<Boolean>, showInbox: MutableState<Boolean>) {
+private fun AppRoot(showUpdate: MutableState<Boolean>) {
     val context = LocalContext.current
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Home)) }
     fun push(s: Screen) { stack = stack + s }
@@ -94,12 +80,6 @@ private fun AppRoot(showUpdate: MutableState<Boolean>, showInbox: MutableState<B
             showUpdate.value = false
         }
     }
-    LaunchedEffect(showInbox.value) {
-        if (showInbox.value) {
-            if (stack.last() != Screen.Inbox) push(Screen.Inbox)
-            showInbox.value = false
-        }
-    }
     BackHandler(enabled = stack.size > 1) { pop() }
 
     when (val s = stack.last()) {
@@ -108,17 +88,7 @@ private fun AppRoot(showUpdate: MutableState<Boolean>, showInbox: MutableState<B
             onNew = { push(Screen.Edit(it, isNew = true)) },
             onSettings = { push(Screen.Settings) },
             onLog = { push(Screen.Log) },
-            onInbox = { push(Screen.Inbox) },
-            onBoard = { push(Screen.Board) },
         )
-        Screen.Inbox -> InboxScreen(onBack = { pop() })
-        Screen.Board -> BoardScreen(
-            onBack = { pop() },
-            onOpen = { push(Screen.BoardTask(it)) },
-            onNew = { push(Screen.BoardEdit(null)) },
-        )
-        is Screen.BoardTask -> BoardTaskScreen(s.id, onBack = { pop() }, onEdit = { push(Screen.BoardEdit(s.id)) })
-        is Screen.BoardEdit -> BoardEditScreen(s.id, onClose = { pop() })
         is Screen.Edit -> RuleEditor(s.rule, s.isNew, onClose = { pop() })
         Screen.Settings -> SettingsScreen(onBack = { pop() })
         Screen.Log -> LogScreen(
@@ -139,7 +109,7 @@ fun AppTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> U
     MaterialTheme(colorScheme = scheme, content = content)
 }
 
-/** Safe from any thread (webhook and AutoAI results arrive on workers). */
+/** Safe from any thread (webhook results arrive on workers). */
 fun Context.toast(message: String) {
     Handler(Looper.getMainLooper()).post { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
 }

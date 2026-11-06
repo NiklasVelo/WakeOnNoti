@@ -26,7 +26,7 @@
 
     <!-- cleartext: webhooks often target LAN gear (Home Assistant, a NAS) over plain http.
          backup: only the rules and settings go to a new phone, never this phone's own state
-         such as the AutoAI relay device id (res/xml/data_extraction_rules.xml). -->
+         (res/xml/data_extraction_rules.xml). -->
     <application
         android:name=".App"
         android:allowBackup="true"
@@ -100,11 +100,6 @@
 
         <receiver
             android:name=".update.InstallReceiver"
-            android:exported="false" />
-
-        <!-- the buttons (and typed notes) of AutoAI inbox notifications -->
-        <receiver
-            android:name=".system.InboxActionReceiver"
             android:exported="false" />
 
         <!-- never receives anything: ListenerDoctor flips it to make Android re-check the listener -->

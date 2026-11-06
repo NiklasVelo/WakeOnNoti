@@ -21,7 +21,7 @@ import java.util.Date
  *   until something else rebinds: a reboot, the user toggling access, a package change.
  * - requestRebind() is ignored unless the listener first snoozed itself with
  *   requestUnbind(), so calling it on a disconnect - all earlier versions did - is a no-op.
- * That is how a listener stays gone while the rest of the app (the AutoAI inbox) runs on.
+ * That is how a listener stays gone while the rest of the app runs on.
  *
  * The doctor checks the binding for real ([NotiListener.isLive]) every 2 minutes while
  * the process lives and on app start, resume, boot, update and the watchdog job. When it

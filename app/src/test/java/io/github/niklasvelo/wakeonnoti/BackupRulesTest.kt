@@ -9,9 +9,9 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 /**
  * Android's backup and the transfer to a new phone carry only the rules and settings. Anything
- * more - above all shared_prefs, where the AutoAI relay device id lives - would hand a new phone
- * this phone's identity, and two phones polling as one end each other's polls. The rules are
- * resource files, so this reads them as XML (Gradle runs unit tests in the module directory).
+ * more - above all shared_prefs - would hand a new phone what is true only of this one, like
+ * whether notification access was ever granted here. The rules are resource files, so this
+ * reads them as XML (Gradle runs unit tests in the module directory).
  */
 class BackupRulesTest {
     private val android = "http://schemas.android.com/apk/res/android"

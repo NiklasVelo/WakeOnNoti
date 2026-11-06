@@ -31,7 +31,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -41,8 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.niklasvelo.wakeonnoti.actions.AutoAiBoard
-import io.github.niklasvelo.wakeonnoti.actions.AutoAiInbox
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmInfo
 import io.github.niklasvelo.wakeonnoti.alarm.AlarmService
 import io.github.niklasvelo.wakeonnoti.data.MatchField
@@ -55,14 +52,9 @@ import io.github.niklasvelo.wakeonnoti.engine.label
 import io.github.niklasvelo.wakeonnoti.system.Apps
 
 @Composable
-fun HomeScreen(
-    onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> Unit, onLog: () -> Unit,
-    onInbox: () -> Unit, onBoard: () -> Unit,
-) {
+fun HomeScreen(onEdit: (Rule) -> Unit, onNew: (Rule) -> Unit, onSettings: () -> Unit, onLog: () -> Unit) {
     val config by Store.config.collectAsState()
     val ringing by AlarmService.current.collectAsState()
-    val inbox by AutoAiInbox.items.collectAsState()
-    val board by AutoAiBoard.board.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -87,12 +79,7 @@ fun HomeScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ringing?.let { item { RingingCard(it) } }
-            // only with an AutoAI setup that receives - without it, nothing of this shows
-            if (inbox.isNotEmpty()) item { InboxCard(inbox.size, inbox.any { it.urgency == "urgent" }, onInbox) }
             item { ProblemsCard() }
-            if (AutoAiBoard.available) item { BoardCard(board, onBoard) }
-            // empty, it still opens: the inbox screen has the reload button
-            if (inbox.isEmpty() && AutoAiInbox.enabled) item { QuietInboxCard(onInbox) }
             item { UpdateBanner(onOpen = onSettings) }
             if (config.rules.isEmpty()) item { EmptyState(onNew) }
             items(config.rules, key = { it.id }) { rule ->
@@ -117,40 +104,6 @@ private fun RingingCard(info: AlarmInfo) {
 }
 
 @Composable
-private fun InboxCard(count: Int, urgent: Boolean, onOpen: () -> Unit) {
-    Card(
-        onClick = onOpen,
-        colors = CardDefaults.cardColors(
-            containerColor = if (urgent) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
-        ),
-    ) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("AutoAI needs you", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    if (count == 1) "1 thing in its inbox" else "$count things in its inbox",
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            Button(onClick = onOpen) { Text("Open") }
-        }
-    }
-}
-
-@Composable
-private fun QuietInboxCard(onOpen: () -> Unit) {
-    Card(onClick = onOpen) {
-        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("AutoAI's inbox", style = MaterialTheme.typography.titleMedium)
-                Text("Nothing waiting", style = MaterialTheme.typography.bodySmall)
-            }
-            TextButton(onClick = onOpen) { Text("Open") }
-        }
-    }
-}
-
-@Composable
 private fun EmptyState(onNew: (Rule) -> Unit) {
     Card {
         Column(Modifier.padding(16.dp)) {
@@ -158,7 +111,7 @@ private fun EmptyState(onNew: (Rule) -> Unit) {
             Spacer(Modifier.height(4.dp))
             Text(
                 "A rule watches incoming notifications – optionally only from certain apps – for words you choose, " +
-                    "and then rings an alarm, calls a webhook, or tells AutoAI.",
+                    "and then rings an alarm or calls a webhook.",
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(12.dp))

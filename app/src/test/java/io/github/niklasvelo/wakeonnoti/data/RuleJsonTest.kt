@@ -13,7 +13,6 @@ class RuleJsonTest {
         val rule = Rule(name = "Everything", skipOngoing = true)
         val config = Config(rules = listOf(rule))
 
-        assertEquals(rule, Config.fromJson(JSONObject(config.toFile(tokenSealed = true).toString())).rules.single())
         assertEquals(rule, Config.fromJson(JSONObject(config.toJson().toString())).rules.single())
     }
 
