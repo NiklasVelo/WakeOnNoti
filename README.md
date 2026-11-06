@@ -1,7 +1,7 @@
 # WakeOnNoti
 
-Rings an alarm – or calls a webhook, or tells [AutoAI](#autoai) – when a notification
-on your Android phone matches rules you set. A small, open-source alternative to
+Rings an alarm – or calls a webhook – when a notification on your Android phone
+matches rules you set. A small, open-source alternative to
 NotiAlarm, built to keep working: the classic failure of these apps is that Android
 quietly stops delivering notifications to them, and WakeOnNoti checks for exactly
 that and repairs it.
@@ -35,14 +35,13 @@ with an **Install update** button, and your rules and settings are kept.
     back afterwards
   - **Webhook** – GET/POST/PUT to any URL with your own headers and body;
     `{rule} {app} {package} {title} {text} {time}` are filled in
-  - **AutoAI** – hands the notification to [AutoAI](#autoai) (an AI advisor app, closed beta),
-    optionally with an instruction
 - **Log** – every incoming notification (kept only on the phone) and every rule that
   fired. Tap a notification to build a rule from it.
 - **Backup** – export / import all rules and settings as a JSON file. Android's own backup
-  (Google backup, moving to a new phone) carries the same rules and settings; the log, the
-  AutoAI inbox and the phone's AutoAI connection identity stay on the old phone. Neither carries
-  the AutoAI device token, so on a new phone you enter it again.
+  (Google backup, moving to a new phone) carries the same rules and settings; the log stays on
+  the old phone. Files from versions before 0.3.0 still import: their settings for AutoAI, an AI
+  advisor app in closed beta that WakeOnNoti no longer connects to, are ignored, and a rule's
+  AutoAI action is dropped with a note in the log.
 
 For chat apps only the *newest* message is matched, and a notification that is merely
 updated in place (same content) does not fire again – so one "wake up" rings once, not on
@@ -119,61 +118,11 @@ In a body that starts with `{` or `[` the placeholders are JSON-escaped, so quot
 message cannot break it; `Content-Type` is set for you unless you give one. Placeholders in
 the URL are URL-encoded. A failed call is retried once after 5 seconds; the result is in the log.
 
-## AutoAI
-
-AutoAI is an AI advisor app that is still in **closed beta**, so there is no open access to
-it yet – if you don't have an AutoAI setup, simply ignore this part; everything else works
-without it.
-
-With access, WakeOnNoti can forward notifications to AutoAI through its server relay (the PC
-needs no open port): *Settings → AutoAI* takes the server URL and a device token, and forwards
-**rule matches** or **everything** (ongoing notifications such as music players excepted,
-plus any apps you exclude). A rule's *Tell AutoAI* action can add an instruction, e.g.
-"ping me on Discord", which AutoAI then carries out. Messages go to
-`POST {server}/api/relay/send` as `kind: "notification"` with a JSON body
-`{app, package, title, text, time, rule?, ask?}`.
-
-The device token is stored encrypted, with a key in the Android Keystore that never leaves the
-phone. It is not part of an export or of Android's backup. Importing settings keeps the token
-as long as the file names the same server; a file naming another server removes it, so that a
-settings file from someone else cannot collect it.
-
-**AutoAI's inbox on the phone** (optional, *Settings → AutoAI → Receive AutoAI's inbox*).
-AutoAI can work on things by itself. Whatever only you can do – approve something it drafted,
-answer a question, do something physical, go to a meeting – lands in its inbox. With this
-switched on, that inbox is also here:
-
-- **Urgent** items ring the alarm, at night too. The alarm screen has an *Open inbox* button.
-- **Normal** items arrive as a quiet notification, with the answers as buttons.
-- What you tap (*Approve*, *Reject*, *Done*, an answer) goes straight back, and with it a short
-  note if you like ("go ahead, but not before 9"). Every item in the inbox has a text field
-  for it. The notification types it in place: *Add note…* for an approval, then tap the
-  answer; *Done, with note…*, *Reply…* or *Skip with note…* send it at once. A note is never
-  required, only a question needs its answer.
-- An answer that cannot be sent stays open, with the note you typed and the reason.
-- Anything you settle at the PC disappears here, and stops the alarm if it is still ringing.
-- Nothing open at the PC stays missing here: the phone also asks AutoAI for its whole open
-  list – after every start and reconnect, every 15 minutes, every minute while the inbox is
-  on screen, and when you tap *Reload*. Asking again never shows anything twice.
-
-The phone long-polls its own relay inbox on the same server, about every 30 seconds while
-the switch is on. For alarms in deep sleep, keep battery optimization off for WakeOnNoti.
-
-**AutoAI's board** (with the inbox switched on, a card on the home screen). AutoAI keeps a
-list of its tasks; here you see it, add tickets and change them:
-
-- What needs you comes first, then what is open, then what closed in the last 7 days.
-- Open a task for every field and its log. Change its state with one tap, or edit priority,
-  owner, what it waits on, the follow-up (`in 2h`, `14:00`, `morgen 09:00`, …) and add notes.
-- A ticket you add or change reaches AutoAI as your instruction. Changes made anywhere else
-  – at the PC or by AutoAI itself – show up here by themselves.
-
 ## Privacy
 
-Nothing leaves the phone unless one of *your* rules sends it (webhook, AutoAI). The log
-and the settings live in the app's private storage. The only other network requests are the
-update check against this repository and, if you switch it on, AutoAI's inbox on your own
-AutoAI server.
+Nothing leaves the phone unless one of *your* rules sends it (webhook). The log and the
+settings live in the app's private storage. The only other network request is the update
+check against this repository.
 
 ## Building
 

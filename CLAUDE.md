@@ -1,9 +1,10 @@
 # CLAUDE.md - WakeOnNoti
 
 Android app (Kotlin, Jetpack Compose, no other libraries): watches notifications,
-fires rules (alarm / webhook / AutoAI). Public repo `NiklasVelo/WakeOnNoti`.
+fires rules (alarm / webhook). Public repo `NiklasVelo/WakeOnNoti`.
 Owner: Niklas. Sibling projects in `D:\Dev`: UmAi (whose hub/update flow this
-updater copies), AutoAI (receives forwarded notifications via its relay).
+updater copies), AutoAI (gets notifications through a rule's webhook to its server's
+`/api/notify`; it has its own phone app now, see "AutoAI left in 0.3.0" below).
 
 **Naming AutoAI here:** call it "AutoAI" and describe it as an AI advisor app that is
 still in closed beta (no open access yet). Never use the name of the owner's own agent
@@ -54,44 +55,27 @@ the policy current at the time, these are from memory:
   the battery-optimization request intent, and whether notification-listener use needs
   a declaration.
 - Privacy policy URL and the Data safety form: notification content is processed on
-  the device; it leaves only through rules the user configures (webhook, AutoAI).
+  the device; it leaves only through rules the user configures (webhook). No server of
+  our own and no account are involved any more.
 - targetSdk must meet Play's current minimum at submission time.
 
 ## Layout (`app/src/main/java/io/github/niklasvelo/wakeonnoti/`)
 
 - `data/` - `Model.kt` (Rule, RuleAction, Settings, JSON via org.json),
   `Store.kt` (filesDir/config.json, AtomicFile, single writer thread),
-  `TokenVault.kt` (the AutoAI token at rest, no Android in it, unit-tested),
-  `KeystoreSealer.kt` (its AES key in the Android Keystore),
+  `AutoAiLeftovers.kt` (what 0.2.9 and older left behind, no Android in it, unit-tested),
   `EventLog.kt` (filesDir/log.json, newest first, 200 entries).
 - `engine/` - `NotiEvent` (flattens a notification to title/text),
-  `Matcher`, `RuleEngine` (dedupe, cooldown, dispatch, AutoAI forwarding).
+  `Matcher`, `RuleEngine` (dedupe, cooldown, dispatch).
 - `system/` - `NotiListener` (the NotificationListenerService; `isLive()` is the real
   binding check), `ListenerDoctor` (self-check every 2 min + on resume/boot/job, repair
   ladder, outage notification, the status the UI shows), `Health` (permission checks,
   fix intents, `rebind()`/`nudge()`), `RebindNudge` (dummy component the nudge flips),
   `Watchdog` (15-min job, boot receiver, optional keep-alive FGS), `Notifications`,
-  `InboxActionReceiver` (the buttons of an inbox notification; a typed note arrives through
-  RemoteInput, and a note shown in the notification rides in the buttons' extras, so it
-  survives a killed process).
+  `AutoAiCleanup` (removes what 0.2.9 and older left on the phone, once).
 - `alarm/` - `AlarmService` (mediaPlayback FGS, alarm stream, vibration,
   auto-stop), `AlarmActivity` (full-screen over lock screen).
-- `actions/` - `Http`, `Webhook`, `AutoAiClient` (forwarding),
-  `AutoAiInbox` (AutoAI's inbox on the phone: long-polls the relay as device platform
-  `wakeonnoti`; message kinds in: `inbox`, `inbox_list`, `inbox_state`; out:
-  `inbox_resolve` = {id, action, text}, `inbox_sync`). `text` is the answer to a question,
-  or for every other kind an optional note that goes along with approve/reject/done; the
-  card has a field for it, the notification types it in place (Android sends no empty
-  reply, so plain buttons stay one tap). `inbox_sync` (answered by the whole open list) goes out
-  after every start and reconnect plus once more 45 s later, every 15 min, every minute
-  while the inbox is on screen, on resume and on Reload. The AutoAI side is in AutoAI's
-  `brain/initiative.py` and `devices/relay.py`.
-  `InboxDelivery` (what the inbox decides, without Android, unit-tested): the poll's
-  `superseded`, the list's `full` / `complete` / `total`, how a list merges into the copy.
-  `AutoAiBoard` (AutoAI's board: rides the inbox's poll and sender; out `board_sync`,
-  `board_edit`; in `board_list` (in parts, any order), `board_task`, `board_ok`,
-  `board_error`; cache filesDir/autoai_board.json). Contract: AutoAI's docs/board-api.md,
-  PC side `brain/tickets.py`. UI in `ui/BoardScreen.kt` (list, task, add/edit form).
+- `actions/` - `Http`, `Webhook`.
 - `update/Updater.kt` - check, download, sha256, PackageInstaller session.
 - `ui/` - plain screen stack in `MainActivity` (no nav library).
 
@@ -99,13 +83,14 @@ the policy current at the time, these are from memory:
 
 Unit tests: `gradlew testDebugUnitTest` (`app/src/test`, plain JVM). JUnit 4 and org.json
 are test-only dependencies; org.json is needed because the JVM sees only Android's stubs of it.
-Logic worth a test goes into a class without Android in it, like `InboxDelivery`.
+Logic worth a test goes into a class without Android in it, like `AutoAiLeftovers`.
 
 Emulator `umai_test` (API 35) boots headless:
 `D:\Android\sdk\emulator\emulator -avd umai_test -no-window -no-audio`.
 Grant access with `adb shell cmd notification allow_listener <pkg>/io.github.niklasvelo.wakeonnoti.system.NotiListener`,
 fake notifications with `adb shell cmd notification post -t Title tag "'text with spaces'"`
-(the inner quotes matter: adb's remote shell splits arguments again).
+(the inner quotes matter: adb's remote shell splits arguments again). After `adb root` it posts
+nothing (`NameNotFoundException: root` in logcat): `adb unroot` first.
 The debug build is `io.github.niklasvelo.wakeonnoti.debug` and debuggable, so a test
 config can be pushed with `run-as <pkg> sh -c 'cat > files/config.json'`.
 Debug builds also carry `DebugHooks` (src/debug, never in release): `adb shell am broadcast
@@ -117,20 +102,13 @@ listeners", "Snoozed notification listeners") and logcat `ListenerDoctor` /
 `cmd notification post` has no flag for ongoing, and the listener ignores this app's own
 notifications, so an ongoing one needs another app: a few lines calling `setOngoing(true)`, or
 `startForeground` for a service. An AVD runs only once: to test beside a session that holds
-`umai_test`, create a second AVD and give the server and harness other ports
-(`AUTOAI_SERVER_PORT`, `E2E_SERVER`, `--port`).
+`umai_test`, create a second AVD.
 
-**AutoAI end to end without the real relay** (board, 2026-11-03): run AutoAI's
-`server/autoai_server.py` locally (`AUTOAI_SERVER_DATA=<tmp> AUTOAI_DEVICE_TOKEN=<test>
-AUTOAI_SERVER_BIND=127.0.0.1 AUTOAI_SERVER_PORT=18485`), plus a small harness that builds
-AutoAI's real `RelayThread`, `Board` and `Initiative` (never `.start()`ed: no agent, no API,
-no desktop actions) with `AUTOAI_DATA_DIR`, `AUTOAI_SERVER_URL` and `AUTOAI_DEVICE_TOKEN`
-set to the test values before importing autoai, and a fake hull whose `stimulus()` records
-what the assistant would be told. The emulator reaches the PC's 127.0.0.1 as `10.0.2.2`:
-push a debug config with `autoAiUrl=http://10.0.2.2:18485`, the test token and
-`autoAiReceive=true` (the token in `autoAiToken`: the start moves it into the vault, as it
-does with a config from before the vault). Nothing touches the live instance, its memory or
-the real server.
+**The webhook to AutoAI's server without the real one:** run AutoAI's `server/autoai_server.py`
+locally (`scripts/phone_e2e/server.ps1` there sets test tokens and a temp folder), and give a rule
+a webhook to `http://10.0.2.2:18485/api/notify` with the header `X-AutoAI-Token: e2e-notify-token`
+(the emulator reaches the PC's 127.0.0.1 as `10.0.2.2`). The server answers 503 until the target
+device has polled once. Nothing touches the live instance, its memory or the real server.
 
 ## Hard-won details
 
@@ -153,7 +131,7 @@ the real server.
   does. On the owner's phone (IPv6-only mobile data) the update check worked and the
   download failed with "Unable to resolve host github.com". Downloads therefore come from a
   commit-pinned raw URL first, with the release asset as fallback (`urls` in version.json).
-  ai.umaai.eu has no AAAA record either - AutoAI forwarding can fail on that network the
+  ai.umaai.eu has no AAAA record either - a webhook to it can fail on that network the
   same way until the VPS gets one.
 - **Alarm volume = stream at max + player gain.** STREAM_ALARM has only ~7 steps, so a
   rule's own volume raises the stream to max (`StreamOverride`, restored on stop) and
@@ -161,7 +139,7 @@ the real server.
   1 % ≈ -30 dB). Verified in `dumpsys media.audio_flinger`: 40 % plays at -18 dB.
   A real alarm stops any editor preview first, or the two restores would fight.
 - **A lost listener is not repaired by `requestRebind()`** (owner's Galaxy A17, 2026-11-03:
-  no notifications, Repair did nothing, AutoAI inbox still worked). Read in AOSP
+  no notifications, Repair did nothing, the rest of the app still worked). Read in AOSP
   `ManagedServices`: `setComponentState` returns early unless the component is snoozed,
   so requestRebind only undoes our own requestUnbind; after "binding died" the system
   retries once (10 s) and then stops (`mServicesRebinding`); `registerServiceLocked` skips
@@ -189,101 +167,49 @@ the real server.
 - **No BOM in JSON or .env.** Windows PowerShell 5.1 `Set-Content -Encoding utf8`
   writes one; org.json then rejects version.json. publish.ps1 writes with
   `UTF8Encoding($false)`.
-- **AutoAI's inbox: measured end to end on the emulator (2026-11-01).**
-  - *Setup:* the PC end was a test instance under its own device name
-    (`autoai-e2e`), never `pc`. The server routes by name, so a test called
-    `pc` could take the live PC's messages.
-  - *Delivery:* urgent rang the alarm in 2 s, normal posted a notification,
-    and low stayed silent.
-  - *Settled on the PC:* the alarm stopped after 1 s.
-  - *Answered on the phone:* the answer arrived as the user's instruction
-    in 1 s.
-  - *Deep sleep:* forced with `dumpsys deviceidle force-idle` (battery
-    unplugged, screen off), the alarm rang in 2 s and woke the screen. That
-    needs the battery-optimization exemption; OEM battery managers may be
-    harsher than the emulator.
-- **A relay message is delivered at most once - so the inbox re-asks for the whole list.**
-  Inbox #28 (2026-11-03) was shown on the PC and never reached the phone: AutoAI's send
-  to the server failed (`WinError 10054`, logged as "could not reach the phone inbox") and
-  `_to_phones` does not retry. The server has a second hole: `Store.inbox()` marks rows
-  delivered when a poll takes them, and it still holds a poll up to 30 s for a connection
-  that is gone (app updated or killed, network dropped) - that poll takes what arrives and
-  it is lost. Reproduced on the emulator (killed process, dead poll ate the first
-  `inbox_list`; the 45 s recheck brought the item). Hence `inbox_sync` on start/reconnect
-  + recheck, every 15 min and on screen. An `inbox_list` keeps an item that came by
-  itself < 60 s ago (AutoAI sends each message on its own thread, so an older list can
-  overtake it - it would have stopped that item's alarm), and announces items never
-  announced (a lost one), except on the very first list (backlog: urgent only).
-- **AutoAI 0.38.5 / relay server 0.1.2 close part of that, with three optional fields**
-  (AutoAI's docs/design.md "Inbox delivery to the phone"; an older side leaves them out
-  and everything reads as before). Verified end to end on the emulator (2026-11-03).
-  - Its sends now go through one ordered queue and are retried (`PhoneQueue`).
-  - `superseded: true` on a poll: a newer poll with the same device id took over, so a
-    poll held for a dead connection takes nothing. Seen live, it means a second poller
-    with this id; the loop pauses 5, 10, 20, 40, then 60 s, or the two would end each
-    other in a tight loop. Android's backup no longer carries the device id (see "Android
-    backup carries only config.json" below); a copy made by other means still would.
-  - `full: false` on a list item: its body was cut to fit 20000 characters. The copy here
-    keeps its own whole text (`InboxDelivery.fuller`). A cut body of an item never seen
-    is stored and marked, and the card says it is shortened.
-  - `complete: false` (+ `total`): the list left items out. Nothing missing from it is
-    settled; its notification and alarm stay. Only a complete list settles, and the 60 s
-    overtake guard above still holds, so an item that came < 60 s ago survives even that.
-- **The relay device id is created once, under a lock** (`by lazy`). The first
-  poll and the first send raced, and the phone registered twice under two ids,
-  one of which never polled.
 - **Android backup carries only config.json** (`res/xml/data_extraction_rules.xml` for 12+,
   `backup_rules.xml` for 6-11, both as one `<include>`; `BackupRulesTest` keeps them so).
-  shared_prefs/state.xml is this phone's own: the relay device id (two phones with one id
-  end each other's polls), `listenerHadAccess` (restored onto a new phone without access, the
-  doctor would report a lost access that the phone never had), what the inbox already announced. Log, inbox and board copies stay
-  too. Chosen over "detect a foreign id at start": Android filters by the *installed* app's
-  rules on restore too, so even a backup made by 0.2.6 or older (which holds the id) restores
-  only config.json - a start-up check could not tell such a restored id from the phone's own.
-  Verified on the emulator (2026-11-03, `bmgr` with LocalTransport, `adb root` to read
+  shared_prefs/state.xml is this phone's own: `listenerHadAccess`, restored onto a new phone
+  without access, would make the doctor report a lost access the phone never had. The log stays
+  too. Android filters by the *installed* app's rules on restore as well, so even a backup made
+  by an older version restores only config.json. Verified on the emulator (2026-11-03, `bmgr`
+  with LocalTransport, `adb root` to read
   `/data/user/0/com.android.localtransport/files/1/_full/<pkg>`; device transfer with
-  `settings put secure backup_local_transport_parameters is_device_transfer=true`): 0.2.6's
-  backup had sp/state.xml and restored the old id; the new build backs up and restores only
-  f/config.json in both modes, also from that old backup. Copies outside Android's backup
-  (root backup apps, maybe OEM transfer tools) are not covered.
-- **The AutoAI token is in neither config.json nor the export.** `Settings.autoAiToken` lives in
-  memory; at rest it is `no_backup/autoai_token.enc`, AES-256-GCM under the Keystore key
-  `autoai_token` (`TokenVault`, `KeystoreSealer`). Decisions behind it:
-  - Keystore directly, not EncryptedSharedPreferences: security-crypto is deprecated, and this
-    is one secret in an app without other libraries.
-  - The key has no user authentication and no unlocked-device requirement, on purpose: the
-    process starts on a locked phone at night, and urgent items must ring then.
-  - The key cannot leave the phone, so the token does not move to a new one, by any route.
-    It gets entered again there. That is the price of keeping it out of backups.
-  - A failing Keystore must never cost the token. The vault takes it and is checked by opening
-    it again *before* it leaves config.json. If the vault refuses (`NOT_SEALED`), the token
-    stays in config.json in plain text, as in every version before, and is tried again on each
-    save and start. Android's backup then carries it too. `Config.toFile` is the one place that
-    can write it; `Config.toJson` (export) cannot.
-  - A file that does not open (`UNREADABLE`) is kept: the empty token in memory is not the user
-    clearing it, which is why `TokenVault.store("")` then does nothing. `Store.retryToken`
-    runs on resume and in the watchdog. A process can live for weeks, and without this a
-    Keystore hiccup at its start would silently keep AutoAI off for all of them.
-  - A token in config.json beats the vault at the start. It can only be from an older version, an
-    old backup, or a refusal, so it is never the older one; moving it is the whole migration, and
-    a crash halfway simply runs it again.
-  - Importing keeps the phone's token only for the same server (`Config.withTokenOf`). An export
-    has no token, so a plain import would have wiped it. Always keeping it would let a settings file
-    from someone else name their own server and collect the token with the next poll.
-  - An old export or old backup still holds the plain token, and earlier Google backups stay
-    until Android replaces them. Only changing the token on the server invalidates those.
-  Verified on the emulator (2026-11-04, API 35, a real 0.2.7 updated in place, a fake relay
-  logging `X-AutoAI-Token`): moved without opening the app, device id untouched, also with
-  full R8 (`debuggable false` on the debug build, which leaves the release app alone). 0.2.7's
-  Android backup held the token in plain text, the new one does not. Making `no_backup`
-  read-only (`run-as ... chmod 500`) is a way to reach `NOT_SEALED` on a real device.
-  `bmgr restore` onto an installed app clears its data first, so the device id changes there,
-  and did on unchanged 0.2.7 too: that is not the token, and not an in-place update.
+  `settings put secure backup_local_transport_parameters is_device_transfer=true`). Copies outside
+  Android's backup (root backup apps, maybe OEM transfer tools) are not covered.
+- **AutoAI left in 0.3.0, and what 0.2.9 and older left behind goes at the first start.**
+  Forwarding, AutoAI's inbox and its board moved to AutoAI's own phone app, in a private repo; their
+  hard-won details are in its CLAUDE.md and in AutoAI's docs. Why the token had a vault
+  (`TokenVault`, Keystore) is in this file as of 0.2.9, in the history. What reaches AutoAI now is an
+  ordinary rule with a webhook to `/api/notify`. Its notify token sits in the rule's header and
+  opens nothing else, so it is no leftover; `AutoAiLeftovers` matches the action type `autoai`
+  exactly, never anything that merely reads "AutoAI".
+  - config.json: `Store.load` saves at once what it read, without the fields. They would otherwise
+    stay in the file until the next save. No marker: the file itself says, so a start after a
+    failed write repeats it, and an old backup restored later is cleaned as well. It only ever
+    saves after a read that worked: saving an empty config over rules that failed to load would
+    be the one way this could lose them.
+  - Everything else: `AutoAiCleanup`, until all of it worked (marker `leftoversRemoved` in the
+    prefs): caches, the vault in `no_backup/` and the Keystore key `autoai_token`, the prefs, the
+    channel. Deleting the channel also takes any inbox notification off the screen. It must never
+    keep the app from starting, so no step throws.
+  - `config.broken.json` can hold a plain token, so the token is cut out of it as text; the rules
+    in it stay. A config.json that does not parse keeps its bytes until the next save, as it always
+    did. Only a plain token in such a file stays until then.
+  - A rule that loses its only action stays, with no action, and the log says which (kind ERROR,
+    so it shows as a problem). Importing an old file logs the same.
+  - Out of reach: exports the user keeps, and earlier Google backups until Android replaces them.
+    Only changing the token on the server invalidates those.
+  Verified on the emulator (2026-11-06, API 35, a real 0.2.9 with vault, inbox, board and a
+  showing inbox notification, updated in place without opening the app; AutoAI's real server 0.2.1;
+  then the signed 0.2.9 from `release/` to a signed 0.3.0, so through R8 too).
+  Read the Keystore as root: `sqlite3 /data/misc/keystore/persistent.sqlite "select alias from
+  keyentry"`. A deleted channel stays in `dumpsys notification` with `mDeleted=true`.
 - **"Ongoing" and "shown by a foreground service" are two things.** On API 35 a foreground
   service that does not call `setOngoing(true)` has `NO_CLEAR|FOREGROUND_SERVICE` and no
   `ONGOING_EVENT`, so `sbn.isOngoing` is false and it would fire on every track change. That is
   what the rule option "Skip ongoing notifications" is for, so `Matcher` checks both
-  (`NotiEvent.ongoing`, `foregroundService`). `ForwardMode.ALL` still checks `ongoing` alone.
+  (`NotiEvent.ongoing`, `foregroundService`).
   Verified on the emulator (2026-11-05, a catch-all webhook rule, a small test app): with the
   option, ongoing posts, their in-place updates and both kinds of service were received and did
   not fire, also after a restart; a normal post did, and so did an ongoing one that turned normal
