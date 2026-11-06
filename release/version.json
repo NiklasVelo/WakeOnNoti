@@ -1,13 +1,13 @@
 {
-    "version":  "0.2.9",
+    "version":  "0.3.0",
     "file":  "WakeOnNoti.apk",
-    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/04fe63603ca7ffbf6745960581f2243d1768cabf/release/WakeOnNoti.apk",
+    "url":  "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/952c96591596c274a24610eecdc622f9a00fecb3/release/WakeOnNoti.apk",
     "urls":  [
-                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/04fe63603ca7ffbf6745960581f2243d1768cabf/release/WakeOnNoti.apk",
-                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.2.9/WakeOnNoti-0.2.9.apk"
+                 "https://raw.githubusercontent.com/NiklasVelo/WakeOnNoti/952c96591596c274a24610eecdc622f9a00fecb3/release/WakeOnNoti.apk",
+                 "https://github.com/NiklasVelo/WakeOnNoti/releases/download/v0.3.0/WakeOnNoti-0.3.0.apk"
              ],
-    "sha256":  "43793219b8cefae7cdffc5ba62a1eaddb38fcc8ab6e677094915ad702d4e001c",
-    "size":  1300307,
-    "notes":  "Regeln: Option \u0027Laufende Benachrichtigungen überspringen\u0027 (Skip ongoing)",
-    "released_at":  "2026-11-06T07:30:19Z"
+    "sha256":  "36704a60c99228d64baf3bcf8ba9196ff80b6d18b21581a1a59cd494afe11fdf",
+    "size":  1251123,
+    "notes":  "WakeOnNoti 0.3.0",
+    "released_at":  "2026-11-06T08:55:43Z"
 }
